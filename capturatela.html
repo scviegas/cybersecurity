@@ -1,0 +1,863 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ponte de Captura · Simulador QR → print de tela</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800;900&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --fundo:#0B0C0E; --superficie:#0E0F11; --linha:#1E2023; --linha-forte:#2A2D31;
+    --texto:#E8E6DF; --texto-2:#9AA0A8; --texto-3:#6C7076;
+    --acento:#B7F53E; --perigo:#FF5147; --atencao:#E2B93B;
+    --mono:'IBM Plex Mono', ui-monospace, monospace;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  [hidden]{display:none !important}
+  html{scroll-behavior:smooth}
+  body{background:var(--fundo);color:var(--texto);font-family:Archivo,sans-serif;-webkit-font-smoothing:antialiased;min-height:100vh}
+  ::selection{background:var(--acento);color:#0B0C0E}
+  body.travado{overflow:hidden}
+  button{font-family:inherit}
+
+  /* ---------- estrutura geral (modo emissor) ---------- */
+  .grade{position:fixed;inset:0;pointer-events:none;z-index:0;
+    background-image:linear-gradient(#131417 1px,transparent 1px),linear-gradient(90deg,#131417 1px,transparent 1px);
+    background-size:56px 56px}
+  #app-emissor{position:relative;z-index:1}
+  .palco{display:grid;grid-template-columns:1.08fr .92fr;max-width:1440px;margin:0 auto;padding:0 clamp(20px,4vw,56px)}
+
+  .topo{position:sticky;top:0;z-index:30;display:flex;justify-content:space-between;align-items:center;
+    padding:0 clamp(20px,4vw,56px);height:54px;background:rgba(11,12,14,.92);backdrop-filter:blur(6px);
+    border-bottom:1px solid var(--linha)}
+  .marca{display:flex;gap:10px;align-items:center;font:800 13px Archivo;letter-spacing:.18em}
+  .marca svg{width:16px;height:16px;color:var(--acento)}
+  .topo-direita{display:flex;gap:18px;align-items:center}
+  .chip-canal{display:flex;gap:8px;align-items:center;font:600 10px var(--mono);letter-spacing:.16em;color:#8A8F98}
+  .ponto{width:6px;height:6px;border-radius:50%;background:var(--acento);animation:pulsar 2.2s infinite}
+  @keyframes pulsar{50%{opacity:.35}}
+  .relogio{font:500 12px var(--mono);color:#B9BEC6;letter-spacing:.06em}
+  .btn-icone{background:none;border:1px solid var(--linha-forte);color:#B9BEC6;width:30px;height:30px;
+    display:grid;place-items:center;cursor:pointer;border-radius:3px;transition:.15s}
+  .btn-icone svg{width:14px;height:14px}
+  .btn-icone:hover{color:var(--acento);border-color:#3A3E44}
+
+  .faixa-aviso{display:flex;gap:10px;align-items:center;max-width:1440px;margin:0 auto;
+    padding:10px clamp(20px,4vw,56px);font:500 11.5px var(--mono);color:#8A8F98;border-bottom:1px solid #141518;line-height:1.5}
+  .faixa-aviso svg{width:14px;height:14px;color:var(--atencao);flex-shrink:0}
+
+  .kicker{font:600 10.5px var(--mono);letter-spacing:.24em;color:var(--acento);display:flex;align-items:center;gap:10px}
+  .kicker::before{content:"";width:26px;height:1px;background:var(--acento);opacity:.7}
+
+  .emissor{padding:44px clamp(20px,3vw,48px) 60px 0}
+  h1{font:900 clamp(44px,5.4vw,72px)/0.98 Archivo;letter-spacing:-.025em;margin-top:14px;color:#F2F0E9}
+  .marca-texto{background:var(--acento);color:#0B0C0E;padding:0 .14em}
+  .sub{margin-top:16px;color:var(--texto-2);font-size:15px;line-height:1.6;max-width:52ch;font-weight:500}
+
+  .campo{margin-top:30px;max-width:560px}
+  .campo label{display:block;font:600 10.5px var(--mono);letter-spacing:.18em;text-transform:uppercase;color:#8A8F98;margin-bottom:8px}
+  .campo input{width:100%;background:#101114;border:1px solid var(--linha-forte);color:var(--texto);
+    font:500 14px var(--mono);padding:13px 14px;border-radius:3px;outline:none;transition:border-color .15s,box-shadow .15s}
+  .campo input:focus{border-color:var(--acento);box-shadow:0 0 0 3px rgba(183,245,62,.12)}
+  .erro{margin-top:8px;font:500 11.5px var(--mono);color:var(--perigo)}
+
+  .composicao{display:flex;gap:28px;align-items:flex-start;margin-top:34px;flex-wrap:wrap}
+  .cartao-qr{position:relative;width:min(340px,100%);background:#FBFAF4;padding:16px;border-radius:6px;
+    box-shadow:14px 14px 0 rgba(0,0,0,.4);flex-shrink:0}
+  #qr-canvas{display:block;width:100%;height:auto}
+  .varredura{position:absolute;inset:16px;overflow:hidden;opacity:0;pointer-events:none;transition:opacity .2s}
+  .cartao-qr.escaneando .varredura{opacity:1}
+  .laser{position:absolute;left:0;right:0;height:20px;top:-24px;
+    background:rgba(183,245,62,.12);border-bottom:2px solid var(--acento)}
+  .cartao-qr.escaneando .laser{animation:varrer 1.15s cubic-bezier(.4,0,.4,1) forwards}
+  @keyframes varrer{0%{top:-24px}100%{top:100%}}
+  .bracket{position:absolute;width:18px;height:18px;border:2px solid transparent;opacity:0;transition:.25s}
+  .cartao-qr.escaneando .bracket{opacity:1;border-color:var(--acento)}
+  .b-tl{top:-8px;left:-8px;border-right:none;border-bottom:none}
+  .b-tr{top:-8px;right:-8px;border-left:none;border-bottom:none}
+  .b-bl{bottom:-8px;left:-8px;border-right:none;border-top:none}
+  .b-br{bottom:-8px;right:-8px;border-left:none;border-top:none}
+
+  .coluna-acoes{display:flex;flex-direction:column;gap:12px;flex:1;min-width:240px;max-width:420px}
+  .btn{display:inline-flex;align-items:center;gap:9px;font:600 11.5px var(--mono);letter-spacing:.14em;
+    text-transform:uppercase;padding:13px 18px;border:1px solid var(--linha-forte);background:transparent;
+    color:var(--texto);cursor:pointer;border-radius:3px;transition:.18s ease;text-decoration:none}
+  .btn svg{width:15px;height:15px}
+  .btn:hover{background:#181A1D;border-color:#3A3E44;transform:translateY(-1px)}
+  .btn:active{transform:translateY(0)}
+  .btn-primario{background:var(--acento);color:#0B0C0E;border-color:var(--acento)}
+  .btn-primario:hover{background:#C9FF5C;border-color:#C9FF5C}
+  .btn-perigo{color:#FF6B62;border-color:#4A2A28}
+  .btn-perigo:hover{background:#1D1413;border-color:#6B342F;color:#FF6B62}
+
+  .payload{margin-top:10px;border-top:1px dashed #26282C;padding-top:14px}
+  .payload-rotulo{font:600 10px var(--mono);letter-spacing:.2em;color:var(--texto-3);margin-bottom:8px}
+  #payload-texto{font:500 12.5px var(--mono);color:#B9BEC6;word-break:break-all;line-height:1.6;display:block}
+  .p-host{color:var(--acento)} .p-path{color:var(--texto)} .p-q{color:#7A8087}
+
+  .stats{display:flex;margin-top:40px;border-top:1px solid var(--linha)}
+  .stat{padding:20px 34px 0 0;margin-right:34px;border-right:1px solid var(--linha)}
+  .stat:last-child{border-right:0;margin-right:0}
+  .stat-num{font:800 34px Archivo;letter-spacing:-.02em;display:inline-block}
+  .stat-num.pop{animation:pop .35s ease}
+  @keyframes pop{30%{transform:scale(1.18);color:var(--acento)}}
+  .stat-rotulo{display:block;font:600 10px var(--mono);letter-spacing:.22em;color:var(--texto-3);margin-top:4px}
+
+  .lado{border-left:1px solid var(--linha);padding:44px 0 60px clamp(20px,3vw,48px);display:flex;flex-direction:column;gap:36px}
+
+  .telefone{position:relative;width:300px;margin-top:18px;border:1px solid var(--linha-forte);
+    background:#0A0B0C;border-radius:34px;padding:10px}
+  .tela{position:relative;height:560px;border-radius:24px;overflow:hidden;background:#101114;transition:box-shadow .4s}
+  .telefone.flash .tela{box-shadow:0 0 0 2px var(--acento)}
+  #tela-alvo{width:100%;height:100%;border:0;background:#101114;opacity:0;transition:opacity .5s}
+  #tela-alvo.on{opacity:1}
+  .cam{position:absolute;top:16px;left:50%;transform:translateX(-50%);width:10px;height:10px;
+    background:#000;border:1px solid #222;border-radius:50%;z-index:6;pointer-events:none}
+  .tela-apagada{position:absolute;inset:0;background:#0A0B0C;display:flex;flex-direction:column;align-items:center;
+    justify-content:center;gap:14px;z-index:5;cursor:pointer;transition:opacity .45s ease;text-align:center;border:none}
+  .tela-apagada.oculta{opacity:0;pointer-events:none}
+  .hora-apagada{font:500 32px var(--mono);color:#3C4046}
+  .tela-apagada p{font:600 10.5px var(--mono);letter-spacing:.22em;color:#565A60;line-height:1.9}
+  .tela-apagada .dica{font:500 10px var(--mono);color:#3C4046}
+  .relink{margin-top:12px;display:inline-flex;gap:8px;align-items:center;background:none;border:none;
+    color:var(--texto-3);font:500 11px var(--mono);letter-spacing:.08em;cursor:pointer;padding:4px 0;
+    border-bottom:1px dashed var(--linha-forte)}
+  .relink:hover{color:var(--texto)}
+  .relink svg{width:13px;height:13px}
+
+  .log{margin-top:16px;border:1px solid var(--linha);background:var(--superficie);max-height:220px;
+    overflow-y:auto;padding:6px 0;border-radius:4px}
+  .log::-webkit-scrollbar{width:6px}
+  .log::-webkit-scrollbar-thumb{background:#26282C;border-radius:3px}
+  .log-vazio{padding:16px;font:500 12px var(--mono);color:#565A60}
+  .log-linha{display:flex;align-items:center;gap:10px;padding:8px 14px;font:500 11.5px var(--mono);border-bottom:1px solid #141518}
+  .log-linha:last-child{border-bottom:0}
+  .log-hora{color:#565A60;flex-shrink:0}
+  .log-linha svg{width:13px;height:13px;flex-shrink:0}
+  .log-txt{color:#B9BEC6;overflow-wrap:anywhere}
+  .t-captura svg{color:var(--acento)}
+  .t-recusa svg{color:var(--perigo)} .t-recusa .log-txt{color:#C98B86}
+  .t-aviso svg{color:var(--atencao)}
+  .t-leitura svg{color:#8A8F98}
+  .t-info svg{color:#8A8F98}
+
+  .galeria{display:flex;flex-direction:column;gap:10px;margin-top:14px}
+  .cap-item{display:grid;grid-template-columns:118px 1fr;gap:14px;align-items:center;text-align:left;
+    background:var(--superficie);border:1px solid var(--linha);padding:10px;cursor:zoom-in;border-radius:4px;
+    opacity:0;transform:translateY(6px)}
+  .cap-item.visivel{opacity:1;transform:none;transition:opacity .3s ease,transform .3s ease,border-color .15s}
+  .cap-item:hover{border-color:#3A3E44}
+  .cap-thumb{position:relative;display:block;height:68px;overflow:hidden;border-radius:3px;border:1px solid #26282C}
+  .cap-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+  .cap-thumb svg{position:absolute;right:6px;bottom:6px;width:13px;height:13px;color:#0B0C0E;
+    background:var(--acento);padding:2px;border-radius:2px;opacity:0;transition:.15s}
+  .cap-item:hover .cap-thumb svg{opacity:1}
+  .cap-meta{display:flex;flex-direction:column;gap:5px;font:500 11px var(--mono);color:#8A8F98;overflow-wrap:anywhere}
+  .cap-l1{color:var(--texto);letter-spacing:.06em}
+  .cap-l3 u{color:var(--acento);text-decoration:none;border-bottom:1px solid var(--acento)}
+
+  .clone-voo{position:fixed;z-index:90;object-fit:cover;pointer-events:none;border:1px solid var(--acento);
+    box-shadow:0 20px 50px rgba(0,0,0,.5)}
+
+  .nota{border-top:1px solid var(--linha);display:grid;grid-template-columns:1fr 1fr;gap:40px;
+    max-width:1440px;margin:0 auto;padding:34px clamp(20px,4vw,56px) 60px}
+  .nota-titulo{display:flex;gap:8px;align-items:center;font:600 10.5px var(--mono);letter-spacing:.2em;
+    color:#B9BEC6;margin-bottom:10px}
+  .nota-titulo svg{width:14px;height:14px;color:var(--acento);flex-shrink:0}
+  .nota-desc{font-size:13px;line-height:1.65;color:#8A8F98;max-width:60ch}
+  .nota code{font:500 12px var(--mono);color:#B9BEC6;background:#141519;padding:1px 5px;border-radius:3px;border:1px solid var(--linha)}
+
+  /* ---------- modo alvo (página aberta pelo QR) ---------- */
+  #app-alvo{min-height:100dvh;background:#101114;color:var(--texto);max-width:440px;margin:0 auto;
+    padding-bottom:48px;font-family:Archivo,sans-serif;border-left:1px solid var(--linha);border-right:1px solid var(--linha)}
+  .statusbar{display:flex;justify-content:space-between;align-items:center;padding:10px 20px 8px;
+    font:500 12px var(--mono);color:#8A8F98}
+  .statusbar-icones{display:flex;gap:8px}
+  .statusbar svg{width:14px;height:14px}
+  .alvo-topo{padding:14px 20px 18px;display:flex;flex-direction:column;gap:10px;border-bottom:1px solid #1B1D20}
+  .chip-destino{display:inline-flex;gap:8px;align-items:center;font:500 11px var(--mono);color:#B9BEC6;
+    border:1px dashed var(--linha-forte);padding:7px 10px;border-radius:3px;overflow-wrap:anywhere}
+  .chip-destino svg{width:13px;height:13px;color:var(--acento);flex-shrink:0}
+  .chip-painel{display:inline-flex;gap:8px;align-items:center;font:600 10px var(--mono);letter-spacing:.16em;color:#8A8F98}
+  .chip-painel .ponto{background:var(--atencao)}
+  .chip-painel.on .ponto{background:var(--acento)}
+  .chip-painel.off .ponto{background:var(--perigo)}
+  .alvo-corpo{padding:28px 20px;display:flex;flex-direction:column;gap:18px}
+  .alvo-corpo .kicker{color:#8A8F98}.alvo-corpo .kicker::before{background:#8A8F98}
+  #alvo-titulo{font:850 30px/1.05 Archivo;letter-spacing:-.02em;color:#F2F0E9}
+  .alvo-texto{color:var(--texto-2);font-size:14.5px;line-height:1.55}
+  .alvo-texto strong{color:var(--texto)}
+  .pedido{border:1px solid #26282C;background:#141519;padding:20px;border-radius:8px;display:flex;flex-direction:column;gap:12px}
+  .pedido-icone{width:44px;height:44px;border:1px solid #2E3236;display:grid;place-items:center;border-radius:6px}
+  .pedido-icone svg{width:22px;height:22px;color:var(--acento)}
+  .pedido-titulo{font-weight:800;font-size:16px}
+  .pedido-texto{font-size:13px;color:var(--texto-2);line-height:1.5}
+  .pedido-acoes{display:flex;gap:10px;flex-wrap:wrap}
+  .alternativa{border-top:1px dashed #26282C;padding-top:14px;display:flex;flex-direction:column;gap:8px}
+  .alternativa p{font:500 10.5px var(--mono);color:var(--texto-3);text-align:center}
+  .btn-arquivo{width:100%;justify-content:center}
+  .sem-suporte,.aviso-dialogo{font:500 11px var(--mono);color:var(--atencao);line-height:1.5}
+  .resultado-rotulo{font:600 11px var(--mono);letter-spacing:.14em;color:var(--acento);display:flex;gap:8px;align-items:center}
+  .resultado-rotulo svg{width:14px;height:14px}
+  #resultado-img{width:100%;border:1px solid #2E3236;border-radius:6px;display:block}
+  .resultado-meta{font:500 11px var(--mono);color:#8A8F98}
+  .recusado-titulo{display:flex;gap:8px;color:#FF6B62;font-weight:800;font-size:16px;align-items:center}
+  .recusado-titulo svg{width:17px;height:17px}
+  .dica-painel{font:500 11.5px var(--mono);color:var(--atencao);line-height:1.5;border:1px dashed #3A3320;
+    padding:10px 12px;border-radius:4px}
+
+  /* ---------- sobreposições ---------- */
+  .toasts{position:fixed;right:18px;bottom:18px;display:flex;flex-direction:column;gap:8px;z-index:100}
+  .toast{background:#141519;border:1px solid var(--linha-forte);border-left:3px solid var(--acento);
+    padding:12px 16px;font:500 12px var(--mono);color:var(--texto);max-width:340px;border-radius:3px;animation:entra .25s ease;line-height:1.5}
+  .toast.erro{border-left-color:var(--perigo)}
+  .toast.ok{border-left-color:var(--acento)}
+  .toast.aviso{border-left-color:var(--atencao)}
+  @keyframes entra{from{transform:translateY(8px);opacity:0}}
+
+  .lightbox{position:fixed;inset:0;z-index:80;background:rgba(6,7,8,.88);display:flex;align-items:center;
+    justify-content:center;padding:24px;backdrop-filter:blur(4px)}
+  .lb-caixa{max-width:min(960px,100%);width:100%}
+  .lb-topo{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:10px;flex-wrap:wrap}
+  .lb-meta{font:500 11px var(--mono);color:#8A8F98}
+  .lb-acoes{display:flex;gap:8px}
+  #lb-img{width:100%;max-height:72vh;object-fit:contain;border:1px solid var(--linha-forte);background:#000;border-radius:4px}
+
+  @media (max-width:1020px){
+    .palco{grid-template-columns:1fr}
+    .emissor{padding-right:0}
+    .lado{border-left:0;border-top:1px solid var(--linha);padding-left:0}
+    .nota{grid-template-columns:1fr}
+  }
+  @media (max-width:560px){
+    h1{font-size:42px}
+    .composicao{gap:22px}
+    .stat{padding-right:20px;margin-right:20px}
+    .stat-num{font-size:28px}
+    .chip-canal{display:none}
+  }
+</style>
+</head>
+<body>
+
+<!-- ================= MODO EMISSOR (painel) ================= -->
+<div id="app-emissor">
+  <div class="grade" aria-hidden="true"></div>
+
+  <header class="topo">
+    <div class="marca"><i data-lucide="scan-line"></i><span>PONTE DE CAPTURA</span></div>
+    <div class="topo-direita">
+      <span class="chip-canal" id="chip-canal"><span class="ponto"></span>CANAL LOCAL</span>
+      <span class="relogio" id="relogio">--:--:--</span>
+      <button class="btn-icone" id="btn-som" aria-label="Alternar som"><i data-lucide="volume-2"></i></button>
+    </div>
+  </header>
+
+  <p class="faixa-aviso">
+    <i data-lucide="shield-alert"></i>
+    Ferramenta educacional: nenhuma tela é capturada sem que o leitor toque em “Permitir” no diálogo nativo do
+    navegador. É exatamente esse limite de privacidade que o simulador demonstra.
+  </p>
+
+  <main class="palco">
+    <!-- coluna esquerda: emissor -->
+    <section class="emissor">
+      <p class="kicker">01 · EMISSOR</p>
+      <h1>Do scan<br>ao <span class="marca-texto">print</span>.</h1>
+      <p class="sub">Gere um QR Code, simule a leitura em outro dispositivo e receba — sempre com consentimento
+        explícito — uma captura da tela de quem o escaneou.</p>
+
+      <div class="campo">
+        <label for="entrada">URL ou mensagem codificada</label>
+        <input id="entrada" type="text" spellcheck="false" maxlength="900"
+               value="https://festival-aurora.example/cupom?origem=qr-estande-12">
+        <p class="erro" id="erro-entrada" hidden></p>
+      </div>
+
+      <div class="composicao">
+        <div class="cartao-qr" id="cartao-qr">
+          <canvas id="qr-canvas" width="520" height="520"></canvas>
+          <div class="varredura" aria-hidden="true"><span class="laser"></span></div>
+          <span class="bracket b-tl"></span><span class="bracket b-tr"></span>
+          <span class="bracket b-bl"></span><span class="bracket b-br"></span>
+        </div>
+
+        <div class="coluna-acoes">
+          <button class="btn btn-primario" id="btn-simular"><i data-lucide="scan-line"></i>Simular leitura</button>
+          <button class="btn" id="btn-janela"><i data-lucide="external-link"></i>Abrir leitor em nova janela</button>
+          <button class="btn" id="btn-png"><i data-lucide="download"></i>Baixar PNG do QR</button>
+          <div class="payload">
+            <p class="payload-rotulo">PAYLOAD DECODIFICADO</p>
+            <code id="payload-texto"></code>
+          </div>
+        </div>
+      </div>
+
+      <div class="stats">
+        <div class="stat"><span class="stat-num" id="st-leituras">0</span><span class="stat-rotulo">LEITURAS</span></div>
+        <div class="stat"><span class="stat-num" id="st-capturas">0</span><span class="stat-rotulo">CAPTURAS</span></div>
+        <div class="stat"><span class="stat-num" id="st-recusas">0</span><span class="stat-rotulo">RECUSAS</span></div>
+      </div>
+    </section>
+
+    <!-- coluna direita: dispositivo + feed -->
+    <aside class="lado">
+      <section class="bloco-dispositivo">
+        <p class="kicker">02 · DISPOSITIVO LEITOR</p>
+        <div class="telefone" id="telefone">
+          <div class="tela">
+            <iframe id="tela-alvo" title="Página aberta pelo QR Code" allow="display-capture"
+                    srcdoc="<!doctype html><style>html{background:#101114}</style>"></iframe>
+            <button class="tela-apagada" id="tela-apagada">
+              <span class="hora-apagada" id="hora-apagada">--:--</span>
+              <p>AGUARDANDO<br>LEITURA DO QR</p>
+              <span class="dica">toque em “Simular leitura”</span>
+            </button>
+          </div>
+          <span class="cam" aria-hidden="true"></span>
+        </div>
+        <button class="relink" id="btn-recarregar"><i data-lucide="refresh-cw"></i>recarregar página do leitor</button>
+      </section>
+
+      <section class="bloco-feed">
+        <p class="kicker">03 · FEED DE EVENTOS</p>
+        <div class="log" id="log" aria-live="polite">
+          <p class="log-vazio">Nenhum evento ainda. Simule uma leitura para começar.</p>
+        </div>
+        <div class="galeria" id="galeria"></div>
+      </section>
+    </aside>
+  </main>
+
+  <footer class="nota">
+    <div>
+      <p class="nota-titulo"><i data-lucide="radio"></i>COMO A SINCRONIA FUNCIONA</p>
+      <p class="nota-desc">Painel e leitor conversam por <code>BroadcastChannel</code>, um canal de mensagem
+        restrito ao mesmo navegador e à mesma origem — as capturas nunca saem da sua máquina. Para o fluxo
+        completo, mantenha o painel aberto nesta janela e use o leitor embutido ou a janela pop-up.</p>
+    </div>
+    <div>
+      <p class="nota-titulo"><i data-lucide="shield-alert"></i>O LIMITE REAL DE PRIVACIDADE</p>
+      <p class="nota-desc">Nenhum site consegue capturar sua tela às escondidas: a API
+        <code>getDisplayMedia</code> sempre exibe o diálogo nativo do sistema, e você escolhe — ou recusa — o que
+        compartilhar. Este simulador reproduce esse fluxo real para treinar equipes e demonstrar o vetor a
+        pessoas que escaneiam QR Codes de origem desconhecida.</p>
+    </div>
+  </footer>
+</div>
+
+<!-- ================= MODO ALVO (página aberta pelo QR) ================= -->
+<div id="app-alvo" hidden>
+  <div class="statusbar">
+    <span id="alvo-hora">--:--</span>
+    <span class="statusbar-icones"><i data-lucide="signal"></i><i data-lucide="wifi"></i><i data-lucide="battery-full"></i></span>
+  </div>
+
+  <header class="alvo-topo">
+    <span class="chip-destino"><i data-lucide="qr-code"></i><span id="alvo-destino">—</span></span>
+    <span class="chip-painel" id="alvo-painel"><span class="ponto"></span><span id="alvo-painel-txt">PAINEL: PROCURANDO…</span></span>
+  </header>
+
+  <main class="alvo-corpo">
+    <p class="kicker">VOCÊ CHEGOU AQUI POR UM QR CODE</p>
+    <h2 id="alvo-titulo">Este site pede<br>um print da sua tela</h2>
+    <p class="alvo-texto">Em condições reais, a página à qual o QR levou estaria fazendo este pedido agora.
+      Navegadores modernos só permitem porque <strong>você</strong> decide — o mesmo vale aqui.</p>
+
+    <div class="pedido" id="pedido">
+      <div class="pedido-icone"><i data-lucide="monitor-up"></i></div>
+      <p class="pedido-titulo">Solicitação de captura de tela</p>
+      <p class="pedido-texto">Se você permitir, o navegador abrirá o diálogo nativo de compartilhamento. A página
+        recebe uma única imagem do que você escolher compartilhar. Nada é enviado em silêncio.</p>
+      <div class="pedido-acoes">
+        <button class="btn btn-primario" id="btn-permitir"><i data-lucide="camera"></i>Permitir captura</button>
+        <button class="btn btn-perigo" id="btn-recusar"><i data-lucide="camera-off"></i>Recusar</button>
+      </div>
+      <div class="alternativa">
+        <p>— ou, se preferir não usar o diálogo —</p>
+        <label class="btn btn-arquivo" for="arquivo-print"><i data-lucide="upload"></i>Anexar um print manualmente</label>
+        <input type="file" id="arquivo-print" accept="image/*" hidden>
+      </div>
+      <p class="sem-suporte" id="sem-suporte" hidden>Este navegador não oferece captura de tela pela página
+        (ex.: iOS Safari). Tire o print nativo do sistema — botões de volume + energia — e anexe acima.</p>
+      <p class="aviso-dialogo" id="aviso-dialogo" hidden>O diálogo foi fechado sem conceder permissão. Nada foi enviado.</p>
+    </div>
+
+    <div class="resultado" id="resultado" hidden>
+      <p class="resultado-rotulo"><i data-lucide="check"></i>PRINT TRANSMITIDO AO EMISSOR</p>
+      <img id="resultado-img" alt="Print capturado">
+      <p class="resultado-meta" id="resultado-meta"></p>
+      <div class="pedido-acoes">
+        <button class="btn" id="btn-novamente"><i data-lucide="refresh-cw"></i>Capturar novamente</button>
+      </div>
+    </div>
+
+    <div class="recusado" id="recusado" hidden>
+      <p class="recusado-titulo"><i data-lucide="camera-off"></i>Nada foi capturado.</p>
+      <p class="alvo-texto">A navegação continua normalmente, e o emissor fica sabendo apenas da recusa.
+        É assim que deveria ser — sempre.</p>
+      <div class="pedido-acoes">
+        <button class="btn" id="btn-reconsiderar"><i data-lucide="eye"></i>Rever a solicitação</button>
+      </div>
+    </div>
+
+    <p class="dica-painel" id="dica-painel" hidden>
+      Nenhum painel emissor foi encontrado. Abra esta mesma página em outra janela deste navegador (sem o
+      parâmetro “?alvo”) para receber as capturas em tempo real.
+    </p>
+  </main>
+</div>
+
+<!-- sobreposições compartilhadas -->
+<div class="lightbox" id="lightbox" hidden>
+  <div class="lb-caixa" role="dialog" aria-modal="true" aria-label="Captura ampliada">
+    <div class="lb-topo">
+      <span class="lb-meta" id="lb-meta"></span>
+      <div class="lb-acoes">
+        <button class="btn" id="lb-baixar"><i data-lucide="download"></i>Baixar</button>
+        <button class="btn" id="lb-fechar"><i data-lucide="x"></i>Fechar</button>
+      </div>
+    </div>
+    <img id="lb-img" alt="Print capturado em ampliação">
+  </div>
+</div>
+<div class="toasts" id="toasts" aria-live="polite"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+<script>
+(() => {
+"use strict";
+
+/* ================= utilidades ================= */
+const $  = (s, r=document) => r.querySelector(s);
+const espera = ms => new Promise(r => setTimeout(r, ms));
+const agora = () => new Date();
+const horaCurta    = d => d.toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'});
+const horaCompleta = d => d.toLocaleTimeString('pt-BR', {hour12:false});
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+function toast(texto, tipo='ok', dur=3400){
+  const t = document.createElement('div');
+  t.className = 'toast ' + tipo;
+  t.textContent = texto;
+  $('#toasts').appendChild(t);
+  setTimeout(() => { t.style.opacity = '0'; t.style.transition = 'opacity .3s'; setTimeout(() => t.remove(), 320); }, dur);
+}
+
+function navegadorResumido(ua){
+  ua = ua || navigator.userAgent;
+  const regras = [
+    [/Edg\/([\d.]+)/, 'Edge'], [/OPR\/([\d.]+)/, 'Opera'], [/Firefox\/([\d.]+)/, 'Firefox'],
+    [/Chrome\/([\d.]+)/, 'Chrome'], [/Version\/([\d.]+).*Safari/, 'Safari'], [/Safari\/([\d.]+)/, 'Safari']
+  ];
+  for (const [re, nome] of regras){
+    const m = ua.match(re);
+    if (m) return nome + ' ' + m[1].split('.')[0];
+  }
+  return 'Navegador';
+}
+
+function desenharRoundRect(c, x, y, w, h, r){
+  r = Math.min(r, w/2, h/2);
+  c.beginPath();
+  c.moveTo(x+r, y);
+  c.arcTo(x+w, y, x+w, y+h, r); c.arcTo(x+w, y+h, x, y+h, r);
+  c.arcTo(x, y+h, x, y, r);     c.arcTo(x, y, x+w, y, r);
+  c.closePath(); c.fill();
+}
+
+/* ================= canal de comunicação (BroadcastChannel + fallback) ================= */
+const CANAL = 'ponte-de-captura-v1';
+let bc = null;
+try { bc = new BroadcastChannel(CANAL); } catch(_) {}
+
+function enviar(msg){
+  msg.ts = Date.now();
+  if (bc) { bc.postMessage(msg); return; }
+  try { localStorage.setItem(CANAL, JSON.stringify(msg)); } catch(_) {}
+}
+function rotear(m){ if (!m || !m.tipo) return; (MODO === 'alvo') ? rotearAlvo(m) : rotearPainel(m); }
+if (bc) bc.onmessage = e => rotear(e.data);
+else window.addEventListener('storage', e => {
+  if (e.key === CANAL && e.newValue) { try { rotear(JSON.parse(e.newValue)); } catch(_) {} }
+});
+
+/* ================= decisão de modo ================= */
+const MODO = new URLSearchParams(location.search).has('alvo') ? 'alvo' : 'emissor';
+if (MODO === 'alvo'){
+  $('#app-emissor').hidden = true;
+  $('#app-alvo').hidden = false;
+  document.title = 'Página aberta pelo QR';
+  iniciarAlvo();
+} else {
+  iniciarPainel();
+}
+
+/* =====================================================================
+   MODO EMISSOR — painel com QR, telefone embutido e feed de eventos
+===================================================================== */
+function iniciarPainel(){
+  const PADRAO = 'https://festival-aurora.example/cupom?origem=qr-estande-12';
+  const estado = { leituras:0, capturas:0, recusas:0, seq:0, escaneando:false, som:true, ligado:false };
+
+  /* relógios */
+  const tick = () => { $('#relogio').textContent = horaCompleta(agora()); $('#hora-apagada').textContent = horaCurta(agora()); };
+  tick(); setInterval(tick, 1000);
+
+  /* status do canal */
+  if (!bc){
+    $('#chip-canal').style.color = '#565A60';
+    $('#chip-canal').lastElementChild.textContent = 'CANAL: STORAGE';
+  }
+  if (location.protocol === 'file:')
+    setTimeout(() => toast('Aberto via file:// — o canal entre janelas pode falhar em alguns navegadores. Se possível, sirva por http.', 'aviso', 6500), 600);
+
+  /* som do scanner (WebAudio, sem arquivos) */
+  let actx = null;
+  function bip(){
+    if (!estado.som) return;
+    try {
+      actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+      const t = actx.currentTime;
+      [[1244, 0, .06], [988, .13, .05]].forEach(([f, d, g]) => {
+        const o = actx.createOscillator(), gg = actx.createGain();
+        o.type = 'square'; o.frequency.value = f;
+        gg.gain.setValueAtTime(g, t + d);
+        gg.gain.exponentialRampToValueAtTime(.0001, t + d + .09);
+        o.connect(gg); gg.connect(actx.destination);
+        o.start(t + d); o.stop(t + d + .1);
+      });
+    } catch(_) {}
+  }
+  $('#btn-som').addEventListener('click', () => {
+    estado.som = !estado.som;
+    $('#btn-som').innerHTML = `<i data-lucide="${estado.som ? 'volume-2' : 'volume-x'}"></i>`;
+    lucide.createIcons();
+  });
+
+  /* geração do QR (desenho próprio sobre a matriz da biblioteca) */
+  const canvas = $('#qr-canvas'), cx = canvas.getContext('2d');
+  function desenharQR(texto){
+    try {
+      const qr = qrcode(0, 'M'); qr.addData(texto); qr.make();
+      $('#erro-entrada').hidden = true;
+      const n = qr.getModuleCount(), quieto = 4;
+      const cell = Math.max(2, Math.floor(520 / (n + quieto * 2)));
+      const tam = cell * (n + quieto * 2);
+      canvas.width = canvas.height = tam;
+      cx.fillStyle = '#FBFAF4'; cx.fillRect(0, 0, tam, tam);
+      const noOlho = (x, y) => (x < 7 && y < 7) || (x >= n - 7 && y < 7) || (x < 7 && y >= n - 7);
+      cx.fillStyle = '#101114';
+      for (let y = 0; y < n; y++) for (let x = 0; x < n; x++){
+        if (!qr.isDark(y, x) || noOlho(x, y)) continue;
+        desenharRoundRect(cx, (x + quieto) * cell + 1, (y + quieto) * cell + 1, cell - 2, cell - 2, Math.max(1.2, cell * .32));
+      }
+      const olho = (ox, oy) => {
+        const x = (ox + quieto) * cell, y = (oy + quieto) * cell, r = cell * 1.9;
+        cx.fillStyle = '#101114'; desenharRoundRect(cx, x, y, 7 * cell, 7 * cell, r);
+        cx.fillStyle = '#FBFAF4'; desenharRoundRect(cx, x + cell, y + cell, 5 * cell, 5 * cell, r * .75);
+        cx.fillStyle = '#101114'; desenharRoundRect(cx, x + 2 * cell, y + 2 * cell, 3 * cell, 3 * cell, r * .5);
+      };
+      olho(0, 0); olho(n - 7, 0); olho(0, n - 7);
+    } catch(err){
+      const e = $('#erro-entrada');
+      e.textContent = typeof qrcode === 'undefined'
+        ? 'Biblioteca de QR indisponível — verifique a conexão.'
+        : 'Conteúdo longo demais para um QR Code. Encurte o texto.';
+      e.hidden = false;
+    }
+  }
+
+  function renderPayload(t){
+    const el = $('#payload-texto');
+    try {
+      const u = new URL(t);
+      el.innerHTML = `<span class="p-host">${esc(u.host)}</span><span class="p-path">${esc(u.pathname)}</span><span class="p-q">${esc(u.search)}</span>`;
+    } catch(_) { el.textContent = t; }
+  }
+
+  const textoAtual = () => $('#entrada').value.trim() || PADRAO;
+  const urlAlvo = () => location.pathname + '?alvo=' + encodeURIComponent(textoAtual()) + '&r=' + Date.now() + '#alvo';
+
+  let tm;
+  $('#entrada').addEventListener('input', () => {
+    clearTimeout(tm);
+    tm = setTimeout(() => { desenharQR(textoAtual()); renderPayload(textoAtual()); enviar({ tipo:'novo-payload', texto:textoAtual() }); }, 280);
+  });
+
+  /* telefone embutido */
+  function ligarTelefone(){
+    const f = $('#tela-alvo');
+    $('#tela-apagada').classList.add('oculta');
+    f.classList.remove('on');
+    f.onload = () => f.classList.add('on');
+    f.src = urlAlvo();
+    estado.ligado = true;
+  }
+  $('#tela-apagada').addEventListener('click', ligarTelefone);
+  $('#btn-recarregar').addEventListener('click', () => {
+    estado.ligado ? ligarTelefone() : toast('O leitor ainda está desligado — simule uma leitura primeiro.', 'aviso');
+  });
+
+  /* simulação de leitura: laser varre o QR, o telefone acorda */
+  $('#btn-simular').addEventListener('click', async () => {
+    if (estado.escaneando) return;
+    estado.escaneando = true;
+    $('#cartao-qr').classList.add('escaneando');
+    bip();
+    await espera(450);
+    ligarTelefone();
+    await espera(750);
+    $('#cartao-qr').classList.remove('escaneando');
+    estado.escaneando = false;
+  });
+
+  $('#btn-janela').addEventListener('click', () => {
+    const w = window.open(urlAlvo(), 'ponte-telefone', 'width=400,height=760,menubar=no,toolbar=no,status=no');
+    if (!w) toast('O navegador bloqueou a janela — permita pop-ups para este site.', 'erro');
+    else toast('Leitor aberto em nova janela. Os eventos chegam ao painel pelo canal local.', 'ok', 4200);
+  });
+
+  $('#btn-png').addEventListener('click', () => {
+    const a = document.createElement('a');
+    a.href = canvas.toDataURL('image/png');
+    a.download = 'qrcode-ponte-de-captura.png';
+    a.click();
+    toast('PNG do QR baixado.');
+  });
+
+  /* log com efeito de digitação */
+  const ICONES = { leitura:'scan-line', captura:'image', recusa:'camera-off', aviso:'alert-triangle', info:'activity' };
+  function linhaLog(tipo, texto){
+    const log = $('#log');
+    const vazio = $('.log-vazio', log); if (vazio) vazio.remove();
+    const linha = document.createElement('p');
+    linha.className = 'log-linha t-' + tipo;
+    linha.innerHTML = `<span class="log-hora">${horaCompleta(agora())}</span><i data-lucide="${ICONES[tipo] || 'activity'}"></i><span class="log-txt"></span>`;
+    log.appendChild(linha);
+    while (log.children.length > 40) log.firstChild.remove();
+    log.scrollTop = log.scrollHeight;
+    lucide.createIcons();
+    digitar(linha.querySelector('.log-txt'), texto);
+  }
+  function digitar(el, texto){
+    let i = 0; el.textContent = '';
+    (function passo(){ i += 2; el.textContent = texto.slice(0, i); if (i < texto.length) requestAnimationFrame(passo); })();
+  }
+
+  function popContador(sel, valor){
+    const el = $(sel);
+    el.textContent = valor;
+    el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop');
+  }
+
+  /* eventos vindos do leitor */
+  function rotearPainel(m){
+    switch (m.tipo){
+      case 'alvo-online': {
+        estado.leituras++; popContador('#st-leituras', estado.leituras);
+        const {w, h} = m.tela || {};
+        linhaLog('leitura', `Dispositivo leu o QR · ${navegadorResumido(m.ua)} · ${w || '?'}×${h || '?'}`);
+        enviar({ tipo:'emissor-online' });
+        break;
+      }
+      case 'captura': registrarCaptura(m); break;
+      case 'recusa':
+        estado.recusas++; popContador('#st-recusas', estado.recusas);
+        linhaLog('recusa', 'Leitor recusou a captura — nada foi transmitido.');
+        toast('Consentimento negado. Nenhuma tela foi capturada.', 'erro');
+        break;
+      case 'pedido-pendente':
+        linhaLog('info', 'Dispositivo abriu o diálogo nativo de captura…');
+        break;
+      case 'cancelado':
+        linhaLog('aviso', 'Diálogo de captura fechado sem conceder permissão.');
+        break;
+    }
+  }
+
+  async function registrarCaptura(m){
+    estado.capturas++; estado.seq++;
+    popContador('#st-capturas', estado.capturas);
+    const kb = Math.round(m.imagem.length * .75 / 1024);
+    const item = montarItemCaptura(m, kb);
+    $('#galeria').prepend(item);
+    linhaLog('captura', `Print recebido · ${m.dim.w}×${m.dim.h} · ${kb} KB${m.origem === 'anexo' ? ' · anexado manualmente' : ''}`);
+    const tel = $('#telefone');
+    tel.classList.add('flash'); setTimeout(() => tel.classList.remove('flash'), 700);
+    await voar(m.imagem, item);
+    item.classList.add('visivel');
+    toast('Captura recebida do dispositivo leitor.', 'ok');
+  }
+
+  function montarItemCaptura(m, kb){
+    const el = document.createElement('button');
+    el.className = 'cap-item';
+    el.innerHTML = `
+      <span class="cap-thumb"><img alt="Print recebido"><i data-lucide="maximize-2"></i></span>
+      <span class="cap-meta">
+        <span class="cap-l1">CAPTURA ${String(estado.seq).padStart(2,'0')} · ${horaCompleta(new Date(m.ts))}</span>
+        <span class="cap-l2">${m.dim.w}×${m.dim.h} · ${kb} KB · ${m.origem === 'anexo' ? 'anexo manual' : 'diálogo nativo'}</span>
+        <span class="cap-l3">${navegadorResumido(m.ua)} · <u>ampliar</u></span>
+      </span>`;
+    el.querySelector('img').src = m.imagem;
+    el.addEventListener('click', () => abrirLightbox(m, kb));
+    lucide.createIcons();
+    return el;
+  }
+
+  /* a captura "voa" do telefone até a galeria */
+  function voar(src, alvoEl){
+    return new Promise(res => {
+      if (matchMedia('(prefers-reduced-motion: reduce)').matches){ res(); return; }
+      const f = document.createElement('img');
+      f.src = src; f.className = 'clone-voo';
+      document.body.appendChild(f);
+      const r1 = $('#telefone').getBoundingClientRect();
+      const r2 = alvoEl.getBoundingClientRect();
+      const w0 = r1.width * .8;
+      f.style.left = (r1.left + r1.width * .1) + 'px';
+      f.style.top  = (r1.top + 40) + 'px';
+      f.style.width = w0 + 'px';
+      const dx = (r2.left + 10) - (r1.left + r1.width * .1);
+      const dy = (r2.top + 10) - (r1.top + 40);
+      const a = f.animate([
+        { transform:'translate(0,0) scale(1)',        opacity:.95 },
+        { transform:`translate(${dx}px,${dy}px) scale(${118 / w0})`, opacity:1 }
+      ], { duration:700, easing:'cubic-bezier(.25,.8,.25,1)' });
+      a.onfinish = () => { f.remove(); res(); };
+    });
+  }
+
+  /* lightbox */
+  function abrirLightbox(m, kb){
+    $('#lb-img').src = m.imagem;
+    $('#lb-meta').textContent =
+      `${m.dim.w}×${m.dim.h} px · ${kb} KB · ${horaCompleta(new Date(m.ts))} · ${m.origem === 'anexo' ? 'anexo manual' : 'captura via diálogo nativo'}`;
+    $('#lb-baixar').onclick = () => {
+      const a = document.createElement('a');
+      a.href = m.imagem;
+      a.download = 'captura-' + new Date(m.ts).toISOString().slice(0,19).replace(/[:T]/g,'-') + '.jpg';
+      a.click();
+    };
+    $('#lightbox').hidden = false;
+    document.body.classList.add('travado');
+  }
+  const fecharLightbox = () => { $('#lightbox').hidden = true; document.body.classList.remove('travado'); };
+  $('#lb-fechar').addEventListener('click', fecharLightbox);
+  $('#lightbox').addEventListener('click', e => { if (e.target === $('#lightbox')) fecharLightbox(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('#lightbox').hidden) fecharLightbox(); });
+
+  /* inicialização */
+  desenharQR(textoAtual());
+  renderPayload(textoAtual());
+  lucide.createIcons();
+  enviar({ tipo:'emissor-online' }); /* painéis que carregam depois ainda encontram leitores abertos */
+}
+
+/* =====================================================================
+   MODO ALVO — a página que o QR abriu no dispositivo leitor
+===================================================================== */
+function iniciarAlvo(){
+  let payload = new URLSearchParams(location.search).get('alvo') || 'https://exemplo.com/';
+
+  const tick = () => $('#alvo-hora').textContent = horaCurta(agora());
+  tick(); setInterval(tick, 15000);
+
+  const resumirDestino = t => {
+    try { const u = new URL(t); return u.host + u.pathname + u.search; }
+    catch(_) { return t.length > 48 ? t.slice(0, 48) + '…' : t; }
+  };
+  $('#alvo-destino').textContent = resumirDestino(payload);
+
+  const marcarPainel = st => {
+    const chip = $('#alvo-painel');
+    chip.classList.remove('on', 'off');
+    if (st === true){ chip.classList.add('on');  $('#alvo-painel-txt').textContent = 'PAINEL: CONECTADO'; $('#dica-painel').hidden = true; }
+    if (st === false){ chip.classList.add('off'); $('#alvo-painel-txt').textContent = 'PAINEL: NÃO ENCONTRADO'; $('#dica-painel').hidden = false; }
+  };
+  setTimeout(() => { if (!$('#alvo-painel').classList.contains('on')) marcarPainel(false); }, 3000);
+
+  function mostrarEstado(nome){
+    ['pedido', 'resultado', 'recusado'].forEach(id => $('#' + id).hidden = (id !== nome));
+  }
+
+  /* suporte à captura nativa */
+  const suporta = !!(navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia);
+  if (!suporta){ $('#btn-permitir').hidden = true; $('#sem-suporte').hidden = false; }
+
+  function transmitir(dataURL, w, h, origem){
+    enviar({ tipo:'captura', imagem:dataURL, dim:{w, h}, origem, ua:navigator.userAgent });
+    $('#resultado-img').src = dataURL;
+    $('#resultado-meta').textContent = `${w}×${h} px · ${Math.round(dataURL.length * .75 / 1024)} KB · ${horaCompleta(agora())}`;
+    mostrarEstado('resultado');
+  }
+
+  async function permitirCaptura(){
+    $('#aviso-dialogo').hidden = true;
+    enviar({ tipo:'pedido-pendente' });
+    try {
+      const stream = await navigator.mediaDevices.getDisplayMedia({ video:true, audio:false });
+      const v = document.createElement('video');
+      v.muted = true; v.playsInline = true; v.srcObject = stream;
+      await v.play();
+      if (!v.videoWidth) await new Promise(r => v.addEventListener('loadedmetadata', r, { once:true }));
+      await espera(150);
+      const escala = Math.min(1, 1280 / v.videoWidth);
+      const c = document.createElement('canvas');
+      c.width = Math.round(v.videoWidth * escala);
+      c.height = Math.round(v.videoHeight * escala);
+      c.getContext('2d').drawImage(v, 0, 0, c.width, c.height);
+      stream.getTracks().forEach(t => t.stop());
+      v.srcObject = null;
+      transmitir(c.toDataURL('image/jpeg', .75), c.width, c.height, 'dialogo');
+    } catch(err){
+      $('#aviso-dialogo').hidden = false;
+      enviar({ tipo:'cancelado' });
+    }
+  }
+
+  $('#btn-permitir').addEventListener('click', permitirCaptura);
+  $('#btn-recusar').addEventListener('click', () => { enviar({ tipo:'recusa' }); mostrarEstado('recusado'); });
+  $('#btn-reconsiderar').addEventListener('click', () => mostrarEstado('pedido'));
+  $('#btn-novamente').addEventListener('click', () => mostrarEstado('pedido'));
+
+  $('#arquivo-print').addEventListener('change', e => {
+    const file = e.target.files[0]; if (!file) return;
+    const fr = new FileReader();
+    fr.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        const escala = Math.min(1, 1280 / img.width);
+        const c = document.createElement('canvas');
+        c.width = Math.round(img.width * escala);
+        c.height = Math.round(img.height * escala);
+        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+        transmitir(c.toDataURL('image/jpeg', .75), c.width, c.height, 'anexo');
+      };
+      img.src = fr.result;
+    };
+    fr.readAsDataURL(file);
+    e.target.value = '';
+  });
+
+  function rotearAlvo(m){
+    if (m.tipo === 'emissor-online') marcarPainel(true);
+    if (m.tipo === 'novo-payload'){
+      payload = m.texto;
+      $('#alvo-destino').textContent = resumirDestino(payload);
+    }
+  }
+
+  enviar({ tipo:'alvo-online', ua:navigator.userAgent, tela:{ w:screen.width, h:screen.height } });
+  lucide.createIcons();
+}
+
+lucide.createIcons();
+})();
+</script>
+</body>
+</html>
