@@ -458,7 +458,10 @@ function confetti(n=90){const c=$("confetti"),cols=["#2196f3","#00b0ff","#ffb300
 /* start/menu */
  $("btnStart").onclick=()=>{S.name=$("inpName").value.trim()||"Analista";$("welcomeTxt").textContent=`Bem-vindo(a), ${S.name}! Escolha um módulo de treinamento.`;renderLevels();show("scr-levels");beep(520,.1)};
  $("btnReset").onclick=()=>{if(confirm("Apagar todo o progresso salvo?")){prog={unlocked:1,best:{},bestTotal:0};save();location.reload()}};
- $("btnHome").onclick=()=>{renderLevels();show("scr-levels")};
+ $("btnHome").onclick=()=>{
+ if($("scr-start").classList.contains("hidden")){renderLevels();show("scr-levels")}
+ else window.scrollTo(0,0);
+};
 function showBest(){$("bestTxt").textContent=prog.bestTotal?`Melhor pontuação: ${prog.bestTotal}/${TOTMAX} 🛡️`:"Melhor pontuação: —"}
 showBest();
 
@@ -541,24 +544,33 @@ function nextMail(){S.inbox.i++;
   if(S.inbox.correct===MAILBOX.length){sc+=BONUS;confetti(50)}finishModule(0,sc,max,r)}}
 
 /* ====== MÓDULO 2: DETECT ====== */
-function initDetect(){$("dtFb").innerHTML="";$("dtCount").textContent="Sinais: 0/7";
+function initDetect(){
+ $("dtFb").innerHTML="";$("dtCount").textContent="Sinais: 0/7";
  const names=Object.keys(DT_FLAGS);
- $("dtList").innerHTML=names.map(k=>`<li data-k="${k}" style="opacity:.55">🔒 Sinal ${names.indexOf(k)+1}</li>`).join("");
- document.querySelectorAll("#dtBody mark").forEach(mk=>{
-  mk.addEventListener("click",()=>{
-   if(mk.classList.contains("hit")||S.detect.done)return;
-   const k=mk.dataset.flag;
-   if(k&&DT_FLAGS[k]&&!S.detect.found.has(k)){
-    S.detect.found.add(k);mk.classList.add("hit");sOk();
-    const li=$("dtList").querySelector(`[data-k="${k}"]`);
-    li.classList.add("hit");li.style.opacity=1;
-    li.innerHTML=`✔ <b>${DT_FLAGS[k].n}</b><br><span style="font-size:.74rem">${DT_FLAGS[k].e}</span>`;
-    $("dtCount").textContent=`Sinais: ${S.detect.found.size}/7`;
-    if(S.detect.found.size===7)endDetect(true);
-   }else{mk.classList.add("miss");sBad();setTimeout(()=>mk.classList.remove("miss"),450)}})});
- document.querySelectorAll("#dtBody .mlink").forEach(a=>{
-  a.addEventListener("click",e=>{e.preventDefault();a.classList.toggle("show")}))})
- $("dtFinish").onclick=()=>{if(!S.detect.done)endDetect(false)};}
+ $("dtList").innerHTML=names.map((k,i)=>`<li data-k="${k}" style="opacity:.55">🔒 Sinal ${i+1}</li>`).join("");
+
+ // Remove handlers antigos recriando o corpo interativo de forma segura via delegação.
+ const body=$("dtBody");
+ body.onclick=e=>{
+  const link=e.target.closest(".mlink");
+  if(link){e.preventDefault();link.classList.toggle("show")}
+  if(S.detect.done)return;
+  const el=e.target.closest("[data-flag]");
+  if(!el||!body.contains(el))return;
+  const k=el.dataset.flag;
+  if(k&&DT_FLAGS[k]&&!S.detect.found.has(k)){
+   S.detect.found.add(k);sOk();
+   body.querySelectorAll(`[data-flag="${k}"]`).forEach(x=>x.classList.add("hit"));
+   const li=$("dtList").querySelector(`[data-k="${k}"]`);
+   li.classList.add("hit");li.style.opacity=1;
+   li.innerHTML=`✔ <b>${DT_FLAGS[k].n}</b><br><span style="font-size:.74rem">${DT_FLAGS[k].e}</span>`;
+   $("dtCount").textContent=`Sinais: ${S.detect.found.size}/7`;
+   if(S.detect.found.size===7)endDetect(true);
+  }
+ };
+ $("dtFinish").disabled=false;
+ $("dtFinish").onclick=()=>{if(!S.detect.done)endDetect(false)};
+}
 function endDetect(all){
  if(S.detect.done)return;S.detect.done=true;
  const f=S.detect.found.size;let sc=f*DPTS;const r=f/7;
@@ -567,7 +579,7 @@ function endDetect(all){
  const miss=Object.keys(DT_FLAGS).filter(k=>!S.detect.found.has(k));
  let html=`<div class="fb ${all?"ok":"bad"}"><b>${all?"🌟 Todos os 7 sinais encontrados! (+5 de bônus)":`Você encontrou ${f}/7 sinais`}</b>`;
  if(miss.length)html+=`Sinais que passaram despercebidos:<ul>${miss.map(k=>`<li><b>${DT_FLAGS[k].n}</b> — ${DT_FLAGS[k].e}</li>`).join("")}</ul>`;
- html+=`<li>Lembre-se: <b>inspecionar o destino real do link</b> teria revelado o endereço IP suspeito na hora!</li></ul></div>`;
+ html+=`<ul><li>Lembre-se: <b>inspecionar o destino real do link</b> teria revelado o endereço IP suspeito na hora!</li></ul></div>`;
  $("dtFb").innerHTML=html;
  finishModule(1,sc,7*DPTS+BONUS,r);}
 
@@ -588,18 +600,18 @@ function renderStep(){const c=$("stContent");
   q.o.forEach((t,ix)=>{const b=document.createElement("button");b.className="opt";
    b.innerHTML=`<span class="k">${"ABC"[ix]}</span>${t}`;
    b.onclick=()=>{
-    [...$("stOpts").children].forEach(x=>{x.disabled=true;
-     if(x===b&&ix===q.a)x.classList.add("ok");
-     if(x===b&&ix!==q.a)x.classList.add("bad");
-     if(ix!==q.a&&b.innerHTML.includes(q.o[q.a]))x.classList.add("ok")});
+    [...$("stOpts").children].forEach((x,j)=>{x.disabled=true;
+     if(j===q.a)x.classList.add("ok");
+     if(x===b&&ix!==q.a)x.classList.add("bad")});
     if(ix===q.a){S.steps.score+=PTS;S.streak++;sOk()}else{S.streak=0;sBad()}updHud();
     $("stFb").innerHTML=`<div class="fb ${ix===q.a?"ok":"bad"}"><b>${ix===q.a?"✅ Correto!":"❌ Não foi essa…"}</b>${q.e}</div>`;
     const nx=document.createElement("button");nx.className="btn next";
     nx.textContent=S.steps.q+1<3?"Próxima ➜":"Finalizar módulo 🎉";
     nx.onclick=()=>{S.steps.q++;
      if(S.steps.q<3)renderStep();
-     else{const max=3*PTS;const sc=S.steps.score;
-      if(sc===max){confetti(50)}finishModule(2,sc,max+BONUS,sc/max)}};
+     else{const baseMax=3*PTS;let sc=S.steps.score;
+      const perfect=sc===baseMax;if(perfect){sc+=BONUS;confetti(50)}
+      finishModule(2,sc,baseMax+BONUS,S.steps.score/baseMax)}};
     $("stFb").appendChild(nx)};
    $("stOpts").appendChild(b)})}}
 
@@ -624,9 +636,9 @@ function answer(btn,ok){const q=S.quiz.list[S.quiz.qi];
  nx.textContent=S.quiz.qi+1<S.quiz.list.length?"Continuar ➜":"Finalizar módulo 🎉"}
  $("qNext").onclick=()=>{
  if(S.quiz.qi+1<S.quiz.list.length){S.quiz.qi++;renderQuiz()}
- else{const max=S.quiz.list.length*PTS;const sc=S.quiz.score;
-  if(sc===max)confetti(50);
-  finishModule(3,sc,max+BONUS,sc/max)}};
+ else{const baseMax=S.quiz.list.length*PTS;let sc=S.quiz.score;
+  const perfect=sc===baseMax;if(perfect){sc+=BONUS;confetti(50)}
+  finishModule(3,sc,baseMax+BONUS,S.quiz.score/baseMax)}};
 
 /* ====== FINAL DE MÓDULO / RELATÓRIO ====== */
 function finishModule(mi,score,max,ratio){const m=MODULES[mi];const id=m.id;
