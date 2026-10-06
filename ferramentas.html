@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>🖥️ NetLab — Simulador Offline de Nmap & Netcat</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800&family=Fira+Code:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#070d18;--term:#0a1220;--panel:#0d1526;--line:#1d2c47;
+  --grn:#39d98a;--grn2:#7dffb0;--cy:#4dc9ff;--am:#ffc44d;--rd:#ff6b6b;--mu:#5f7ba8;
+  --ink:#dbe7ff;--b600:#1565c0;--b400:#2196f3;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+.hidden{display:none!important}
+body{font-family:'Poppins',system-ui,Segoe UI,Roboto,Arial,sans-serif;color:#e7eefc;min-height:100vh;
+  background:radial-gradient(900px 480px at 110% -10%,rgba(33,150,243,.16),transparent 60%),
+             radial-gradient(700px 420px at -10% 110%,rgba(13,71,161,.2),transparent 60%),
+             linear-gradient(180deg,#070d18,#0b1424 55%,#070d18)}
+header{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 20px;flex-wrap:wrap;
+  border-bottom:1px solid var(--line);background:rgba(10,18,32,.7);position:sticky;top:0;z-index:10;backdrop-filter:blur(6px)}
+.brand b{font-size:1.05rem;display:block}
+.brand span{color:var(--mu);font-size:.73rem}
+.hud{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.chip{background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:5px 13px;font-weight:600;font-size:.8rem;color:var(--ink);cursor:pointer}
+.chip small{color:var(--mu);font-weight:400}
+button{font-family:inherit;cursor:pointer;border:none;border-radius:12px;transition:.18s}
+.btn{background:linear-gradient(135deg,var(--b600),var(--b400));color:#fff;font-weight:700;padding:10px 20px;font-size:.9rem;box-shadow:0 6px 18px rgba(21,101,192,.4)}
+.btn:hover{filter:brightness(1.1);transform:translateY(-1px)}
+.btn.ghost{background:var(--panel);color:var(--cy);border:1px solid var(--line);box-shadow:none}
+.btn.small{padding:7px 14px;font-size:.8rem;border-radius:10px}
+.layout{display:flex;gap:16px;max-width:1340px;margin:0 auto;padding:16px}
+aside{width:290px;flex-shrink:0;display:flex;flex-direction:column;gap:12px}
+@media(max-width:1000px){.layout{flex-direction:column}aside{width:auto}}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px}
+.panel h4{color:var(--cy);font-size:.8rem;text-transform:uppercase;letter-spacing:.6px;margin-bottom:9px;display:flex;justify-content:space-between;align-items:center}
+.mission{background:#0b1322;border:1px solid var(--line);border-radius:10px;padding:9px 11px;margin-bottom:7px;font-size:.78rem;color:#a9c0e8}
+.mission b{color:var(--ink);display:block;font-size:.8rem}
+.mission.done{border-color:rgba(57,217,138,.5);background:rgba(57,217,138,.07)}
+.mission .st{float:right;font-weight:800}
+.mission.done .st{color:var(--grn)}
+.cheat{font-size:.72rem;color:#9db4d8;line-height:1.55}
+.cheat code{font-family:'Fira Code',monospace;color:var(--grn2);background:#0b1322;border:1px solid var(--line);border-radius:5px;padding:1px 5px;white-space:nowrap}
+.cheat .grp{color:var(--am);font-weight:600;display:block;margin:8px 0 3px}
+.ethic{background:rgba(255,196,77,.07);border:1px solid rgba(255,196,77,.4);border-radius:12px;padding:11px 13px;font-size:.75rem;color:#ffe1a3;line-height:1.55}
+.ethic b{display:block;margin-bottom:3px;color:var(--am)}
+.terminal{flex:1;display:flex;flex-direction:column;background:var(--term);border:1px solid var(--line);border-radius:14px;overflow:hidden;box-shadow:0 14px 40px rgba(0,0,0,.5);min-height:calc(100vh - 140px)}
+.tbar{display:flex;align-items:center;gap:8px;padding:9px 14px;background:#0d1729;border-bottom:1px solid var(--line)}
+.dot{width:11px;height:11px;border-radius:50%}
+.dot.r{background:#ff5f57}.dot.y{background:#febc2e}.dot.g{background:#28c840}
+.tbar .title{margin-left:8px;font-size:.78rem;color:var(--mu);font-family:'Fira Code',monospace}
+#out{flex:1;overflow-y:auto;padding:14px 18px;font-family:'Fira Code',monospace;font-size:.82rem;line-height:1.65;white-space:pre-wrap;word-break:break-word}
+#out .cmd{color:#fff}
+#out .cmd .p{color:var(--grn);font-weight:600}
+#out .ok{color:var(--grn2)}
+#out .hi{color:var(--cy)}
+#out .warn{color:var(--am)}
+#out .err{color:var(--rd)}
+#out .mu{color:var(--mu)}
+.inrow{display:flex;align-items:center;gap:9px;padding:11px 16px;border-top:1px solid var(--line);background:#0c1424}
+.inrow .p{font-family:'Fira Code',monospace;font-size:.85rem;color:var(--grn);font-weight:600;white-space:nowrap}
+#inp{flex:1;background:transparent;border:none;outline:none;color:#fff;font-family:'Fira Code',monospace;font-size:.85rem}
+.kbd-hint{color:var(--mu);font-size:.68rem;margin-left:8px;white-space:nowrap}
+.modal{position:fixed;inset:0;z-index:60;background:rgba(4,8,16,.7);display:flex;align-items:center;justify-content:center;padding:18px;animation:fade .25s}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+.mcard{background:#0e1930;border:1px solid var(--line);border-radius:18px;max-width:560px;width:100%;padding:28px;text-align:center;box-shadow:0 24px 70px rgba(0,0,0,.6);animation:pop .3s}
+@keyframes pop{from{transform:scale(.9);opacity:0}to{transform:scale(1);opacity:1}}
+.mcard h1{font-size:1.5rem;margin-bottom:6px}
+.mcard p{color:#a9c0e8;font-size:.9rem;line-height:1.65;margin:10px 0}
+.mcard .ethic{text-align:left}
+footer{text-align:center;color:var(--mu);font-size:.7rem;padding:6px 16px 24px;line-height:1.7}
+footer b{color:var(--cy)}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand"><b>🖥️ NetLab Simulator</b><span>Emulador offline de Nmap & Netcat · rede virtual de laboratório</span></div>
+  <div class="hud">
+    <div class="chip" style="cursor:default">🎯 <small>Missões:</small> <span id="mDone">0</span>/7</div>
+    <div class="chip" style="cursor:default">⏱️ <small>Sessão:</small> <span id="sessTime">00:00</span></div>
+    <button class="chip" id="btnMute" title="Som">🔊</button>
+    <button class="chip" id="btnReset">🗑 Resetar</button>
+    <button class="btn small ghost" id="btnAbout">ℹ Sobre</button>
+  </div>
+</header>
+
+<div class="layout">
+<aside>
+  <div class="panel">
+    <h4>🎯 Missões <span id="mPct" style="color:var(--grn)"></span></h4>
+    <div id="mList"></div>
+  </div>
+  <div class="panel">
+    <h4>📋 Cheat Sheet</h4>
+    <div class="cheat">
+      <span class="grp">Descoberta (nmap)</span>
+      <code>nmap -sn 192.168.10.0/24</code> — hosts ativos<br>
+      <code>nmap 192.168.10.5</code> — portas TCP<br>
+      <code>nmap -p 80,443 alvo</code> — portas específicas<br>
+      <code>nmap -sV alvo</code> — versão dos serviços<br>
+      <code>nmap -O alvo</code> — fingerprint de SO<br>
+      <code>nmap -A alvo</code> — agressivo (SO+versão)<br>
+      <code>nmap -Pn alvo</code> — ignora ping<br>
+      <code>nmap --open</code> — só portas abertas
+      <span class="grp">Netcat</span>
+      <code>nc alvo porta</code> — conectar (banner)<br>
+      <code>nc -v alvo porta</code> — verboso<br>
+      <code>nc -zv alvo 1-100</code> — teste de portas<br>
+      <code>nc -l 5555</code> — abrir listener<br>
+      <code>GET / HTTP/1.1</code> — sessão HTTP
+      <span class="grp">Utilitários</span>
+      <code>help</code> · <code>ping alvo</code> · <code>ip a</code> · <code>clear</code>
+    </div>
+  </div>
+  <div class="panel ethic">
+    <b>⚖️ Uso responsável</b>
+    Emulador <b>100% offline</b>: a rede 192.168.10.0/24 é fictícia e vive neste arquivo. Nenhum pacote é enviado e nenhum host real é acessado. Varreduras reais exigem <b>autorização expressa</b> — sem ela, são ilegais em muitas jurisdições.
+  </div>
+</aside>
+
+<div class="terminal">
+  <div class="tbar">
+    <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="title">analyst@netlab: ~/lab — emulador offline</span>
+  </div>
+  <div id="out"></div>
+  <div class="inrow">
+    <span class="p" id="prompt">analyst@netlab:~$</span>
+    <input id="inp" autocomplete="off" spellcheck="false" autofocus>
+    <span class="kbd-hint">↑↓ histórico · Tab completa</span>
+  </div>
+</div>
+</div>
+
+<div class="modal" id="aboutModal">
+  <div class="mcard">
+    <h1>🖥️ NetLab Simulator</h1>
+    <p>Emulador educacional de <b>nmap</b> e <b>netcat</b> que roda inteiramente no navegador. A "rede" é um conjunto de hosts virtuais com portas, serviços, banners e sistemas simulados — para praticar <b>descoberta, varredura, fingerprinting e banner grabbing</b> com risco zero.</p>
+    <div class="ethic"><b>⚖️ Aviso ético</b>Este simulador não se conecta a nenhuma rede real. Ferramentas reais são legítimas em auditorias <b>autorizadas</b>; varrer redes sem permissão é crime em várias jurisdições. Treine aqui; use lá somente com autorização.</div>
+    <p style="font-size:.78rem;color:var(--mu)">Dica: Enter ou Esc também fecham esta janela.</p>
+    <button class="btn" id="closeAbout" style="margin-top:8px">Começar</button>
+  </div>
+</div>
+
+<footer><b>NetLab Simulator — ferramenta didática, 100% offline e fictícia.</b><br>
+Nenhum pacote de rede é gerado. Progresso salvo apenas neste navegador. © 2026 — uso educacional responsável.</footer>
+
+<script>
+/* ================= REDE VIRTUAL (fictícia) ================= */
+const SUBNET="192.168.10";
+const MYIP=SUBNET+".100";
+const NET={
+ "192.168.10.1":{host:"gateway-lab",os:"Linux 5.15 (firmware de roteador)",mac:"08:00:27:11:AA:01",lat:"0.00031",
+  ports:{22:{st:"closed"},53:{st:"open",svc:"domain",ver:"dnsmasq 2.89"},80:{st:"open",svc:"http",ver:"nginx 1.24.0 (admin page)"}}},
+ "192.168.10.5":{host:"webserver-lab",os:"Linux 5.4 (Ubuntu 20.04)",mac:"08:00:27:11:AA:05",lat:"0.00045",
+  ports:{21:{st:"open",svc:"ftp",ver:"vsftpd 3.0.3"},22:{st:"open",svc:"ssh",ver:"OpenSSH 8.2p1 (Ubuntu)"},80:{st:"open",svc:"http",ver:"Apache httpd 2.4.41 ((Ubuntu))"},443:{st:"open",svc:"ssl/http",ver:"Apache httpd 2.4.41 (TLS 1.3)"},3306:{st:"filtered",svc:"mysql",ver:""}}},
+ "192.168.10.12":{host:"fileserver-lab",os:"Windows Server 2019 (build 17763)",mac:"08:00:27:11:AA:0C",lat:"0.00052",
+  ports:{135:{st:"open",svc:"msrpc",ver:"Microsoft Windows RPC"},139:{st:"open",svc:"netbios-ssn",ver:""},445:{st:"open",svc:"microsoft-ds",ver:"Windows Server 2019"},3389:{st:"open",svc:"ms-wbt-server",ver:"Microsoft Terminal Services"}}},
+ "192.168.10.14":{host:"mailserver-lab",os:"Linux 5.10 (Debian 11)",mac:"08:00:27:11:AA:0E",lat:"0.00049",
+  ports:{25:{st:"open",svc:"smtp",ver:"Postfix smtpd 3.5.6"},143:{st:"open",svc:"imap",ver:"Dovecot imapd"},993:{st:"open",svc:"ssl/imap",ver:"Dovecot imapd (TLS)"}}},
+ "192.168.10.20":{host:"workstation-01",os:"Windows 10 (build 19045)",mac:"08:00:27:11:AA:14",lat:"0.00060",
+  ports:{135:{st:"open",svc:"msrpc",ver:"Microsoft Windows RPC"},139:{st:"open",svc:"netbios-ssn",ver:""},445:{st:"open",svc:"microsoft-ds",ver:"Windows 10"}}},
+ "192.168.10.30":{host:"printer-lab",os:"Embedded (impressora multifuncional)",mac:"08:00:27:11:AA:1E",lat:"0.00071",
+  ports:{80:{st:"open",svc:"http",ver:"JetDirect web admin"},631:{st:"open",svc:"ipp",ver:"CUPS 2.3"},9100:{st:"open",svc:"jetdirect",ver:""}}},
+ "192.168.10.77":{host:"honeypot-lab",os:"Linux 4.x (fingerprint ambíguo)",mac:"08:00:27:11:AA:4D",lat:"0.00066",
+  ports:{22:{st:"open",svc:"ssh",ver:"OpenSSH 6.6p1 (MUITO antigo 🚩)"},23:{st:"open",svc:"telnet",ver:""},8080:{st:"open",svc:"http-proxy",ver:""}}}
+};
+const BANNERS={
+ 22:"SSH-2.0-{sshver}\r\n",21:"220 {banner}\r\n",25:"220 {host} ESMTP Postfix\r\n",
+ 23:"Welcome to lab-telnet (host virtual)\r\nlogin: ",
+ 143:"* OK [CAPABILITY IMAP4rev1] Dovecot ready.\r\n",
+ 80:"{HTTP}",443:"{HTTPS}"};
+const HTTPPAGE="HTTP/1.1 200 OK\r\nServer: Apache/2.4.41 (Ubuntu)\r\nContent-Type: text/html\r\n\r\n<html><head><title>Lab Intranet</title></head><body><h1>Laboratório Virtual — página de teste</h1></body></html>";
+
+/* ================= MISSÕES ================= */
+const MISSIONS=[
+ {id:"m1",t:"Descoberta de hosts",d:`Rode <code>nmap -sn 192.168.10.0/24</code> e encontre quem está ativo.`},
+ {id:"m2",t:"Varredura de portas",d:`Rode <code>nmap 192.168.10.5</code> e liste as portas abertas.`},
+ {id:"m3",t:"Versão dos serviços",d:`Rode <code>nmap -sV 192.168.10.5</code> e identifique Apache e OpenSSH.`},
+ {id:"m4",t:"Fingerprint de SO",d:`Use <code>-O</code> ou <code>-A</code> em qualquer host.`},
+ {id:"m5",t:"Banner grabbing",d:`Conecte com <code>nc</code> a uma porta com banner (21, 22, 23, 25, 143 ou HTTP via GET) e capture-o.`},
+ {id:"m6",t:"Scan rápido com netcat",d:`Use <code>nc -zv 192.168.10.12 1-500</code> e descubra o RDP.`},
+ {id:"m7",t:"Achado de segurança",d:`Descubra por que a porta 3306 do 192.168.10.5 aparece <b>filtered</b> — e o que isso significa (pense firewall).`}];
+let missions;try{missions=JSON.parse(localStorage.getItem("netlabMissions"))||{}}catch(e){missions={}}
+const saveM=()=>localStorage.setItem("netlabMissions",JSON.stringify(missions));
+
+/* ================= TERMINAL ================= */
+const $=s=>document.getElementById(s);
+const out=$("out"),inp=$("inp"),promptEl=$("prompt");
+let busy=false,hist=[],hi=-1,ncSession=null,flag3306=false,muted=false,actx=null;
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+const esc=s=>String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;");
+function print(html="",cls=""){const d=document.createElement("div");if(cls)d.className=cls;d.innerHTML=html;out.appendChild(d);out.scrollTop=out.scrollHeight}
+function echoCmd(line){print(`<span class="p">${esc(promptEl.textContent)}</span> <span class="cmd">${esc(line)}</span>`)}
+function setPrompt(t){promptEl.textContent=t}
+function confetti(n=110){const cols=["#39d98a","#4dc9ff","#ffc44d","#ff6b6b","#7dffb0"];
+ for(let i=0;i<n;i++){const d=document.createElement("div");
+  d.style.cssText=`position:fixed;top:-12px;left:${Math.random()*100}%;width:8px;height:11px;border-radius:3px;z-index:99;pointer-events:none;background:${cols[i%cols.length]};animation:f ${2+Math.random()*2}s linear forwards`;
+  document.body.appendChild(d);setTimeout(()=>d.remove(),4400)}
+ const st=document.createElement("style");st.textContent="@keyframes f{to{transform:translateY(105vh) rotate(720deg)}}";document.head.appendChild(st)}
+function beep(f,d,t="sine",v=.1){if(muted)return;try{actx=actx||new (window.AudioContext||window.webkitAudioContext)();
+ const o=actx.createOscillator(),g=actx.createGain();o.type=t;o.frequency.value=f;g.gain.value=v;
+ o.connect(g);g.connect(actx.destination);o.start();g.gain.exponentialRampToValueAtTime(.001,actx.currentTime+d);o.stop(actx.currentTime+d)}catch(e){}}
+
+function completeMission(id){
+ if(missions[id])return;
+ const m=MISSIONS.find(x=>x.id===id);if(!m)return;
+ missions[id]=Date.now();saveM();renderMissions();
+ print(`<span class="ok">🎯 MISSÃO COMPLETA:</span> ${m.t} <span class="mu">(${Object.keys(missions).length}/7)</span>`);
+ beep(880,.12);setTimeout(()=>beep(1175,.2),120);
+ if(Object.keys(missions).length===7){confetti(130);
+  print(`<span class="hi">🏆 TODAS AS MISSÕES CONCLUÍDAS! Leve esse conhecimento a ambientes REAIS — sempre com autorização por escrito. 🛡️</span>`)}}
+function renderMissions(){
+ const done=Object.keys(missions).length;
+ $("mDone").textContent=done;
+ $("mPct").textContent=`${Math.round(done/7*100)}%`;
+ $("mList").innerHTML=MISSIONS.map(m=>
+  `<div class="mission ${missions[m.id]?"done":""}"><span class="st">${missions[m.id]?"✓":"○"}</span><b>${m.t}</b>${m.d}</div>`).join("")}
+
+/* helpers de rede virtual */
+function resolveHost(tok){if(NET[tok])return tok;
+ for(const ip in NET)if(NET[ip].host===tok.toLowerCase())return ip;return null}
+function parseTarget(tok){const t=String(tok||"").trim();
+ if(/^\d+\.\d+\.\d+\.\d+(\/\d+)?$/.test(t))return{type:/\//.test(t)?"cidr":"ip",val:t};
+ const r=resolveHost(t);return r?{type:"ip",val:r}:{type:"invalid",val:t}}
+function inSubnet(ip){return ip.startsWith(SUBNET+".")}
+function parsePortSpec(spec){
+ const set=new Set();
+ try{for(const part of String(spec).split(",")){
+  if(/^\d+$/.test(part)){const n=+part;if(n<1||n>65535)return null;set.add(n)}
+  else if(/^\d+-\d+$/.test(part)){const[a,b]=part.split("-").map(Number);
+   if(a<1||b>65535||a>b)return null;for(let n=a;n<=b&&n-a<=2000;n++)set.add(n)}
+  else return null}}catch(e){return null}
+ return[...set]}
+function guessSvc(p){return({53:"domain",80:"http",443:"https",22:"ssh",21:"ftp",25:"smtp",143:"imap",993:"imaps",135:"msrpc",139:"netbios-ssn",445:"microsoft-ds",3389:"ms-wbt-server",631:"ipp",9100:"jetdirect",8080:"http-proxy",23:"telnet",3306:"mysql"})[p]||"unknown"}
+
+/* ---------------- NMAP ---------------- */
+function nmapHelp(){print(`<span class="hi">Nmap 7.94 (SIMULADO — flags suportadas neste emulador)</span>
+<span class="mu">  -sn        </span><span class="ok">  descoberta de hosts (ping sweep)</span>
+<span class="mu">  -sT / -sS  </span><span class="ok">  varredura TCP (mesmo resultado aqui)</span>
+<span class="mu">  -sV        </span><span class="ok">  detectar versão dos serviços</span>
+<span class="mu">  -O         </span><span class="ok">  fingerprint de sistema operacional</span>
+<span class="mu">  -A         </span><span class="ok">  modo agressivo (SO + versões)</span>
+<span class="mu">  -Pn        </span><span class="ok">  tratar todos os hosts como online</span>
+<span class="mu">  -p PORTAS  </span><span class="ok">  portas: -p 80,443 ou -p 1-1024</span>
+<span class="mu">  --open     </span><span class="ok">  mostrar apenas portas abertas</span>
+<span class="mu">  --help     </span><span class="ok">  esta ajuda</span>
+<span class="warn">Estados: open (serviço ativo) · closed (nada escutando) · filtered (firewall bloqueou — silêncio)</span>`)}
+
+async function runNmap(args){
+ const F={sV:false,O:false,A:false,Pn:false,sn:false,open:false};
+ let ports=null;const targets=[];
+ for(let i=0;i<args.length;i++){
+  const a=args[i];
+  if(a.startsWith("-p")){ports=a.length>2?a.slice(2):(args[++i]||"");continue}
+  if(a==="--open"){F.open=true;continue}
+  if(a==="--help"||a==="-h"){nmapHelp();return}
+  if(a.startsWith("--")){print(`<span class="err">nmap: opção não suportada '${esc(a)}'</span>`);return}
+  if(a.startsWith("-")){const s=a.slice(1);
+   let bad=false;
+   for(let k=0;k<s.length;k++){const c=s[k];
+    if(c==="s")continue;
+    else if(c==="n")F.sn=true;
+    else if(c==="V")F.sV=true;
+    else if(c==="O")F.O=true;
+    else if(c==="A")F.A=true;
+    else if(c==="P"){if(s[k+1]==="n"){F.Pn=true;k++}}
+    else if(c==="v"||c==="T"){}/* aceitos, sem efeito aqui */
+    else{print(`<span class="err">nmap: flag não suportada '-${esc(c)}' (veja --help)</span>`);bad=true;break}}
+   if(bad)return;continue}
+  targets.push(a)}
+ if(!targets.length){print(`<span class="err">nmap: falta o alvo. Ex.: nmap -sV 192.168.10.5</span>`);return}
+ if(F.A){F.sV=true;F.O=true}
+ let ips=[];
+ for(const t of targets){
+  const p=parseTarget(t);
+  if(p.type==="invalid"){print(`<span class="warn">Failed to resolve "${esc(p.val)}".</span>`);continue}
+  if(p.type==="cidr"){const base=p.val.split("/")[0];
+   if(!inSubnet(base))print(`<span class="warn">Aviso: alvo fora da sub-rede do lab (${SUBNET}.0/24) — nenhum host virtual responderá.</span>`);
+   ips.push(...Object.keys(NET))}
+  else ips.push(p.val)}
+ ips=[...new Set(ips)];
+ print(`<span class="mu">Starting Nmap 7.94 (simulado) at ${new Date().toLocaleString("pt-BR",{hour12:false})}</span>`);
+ await sleep(300);
+ if(F.sn){await hostDiscovery(ips);return}
+ const plist=ports?parsePortSpec(ports):null;
+ if(ports&&!plist){print(`<span class="err">nmap: especificação de portas inválida: '${esc(ports)}'</span>`);return}
+ await scanPorts(ips,plist,F)}
+async function hostDiscovery(ips){
+ let ups=0;
+ for(const ip of ips){const h=NET[ip];await sleep(160);
+  if(h){ups++;
+   print(`<span class="ok">Nmap scan report for ${ip}</span>`);
+   print(`<span class="mu">Host is up (${h.lat}s latency). MAC Address: ${h.mac} (${h.host})</span>`)}}
+ if(!ups)print(`<span class="err">Note: Host seems down. If it is really up, try -Pn</span>`);
+ print(`\n<span class="mu">Nmap done: ${ips.length} IP(s) (${ups} up) scanned in ${(0.5+Math.random()*0.4).toFixed(2)}s</span>`);
+ if(ups>0)completeMission("m1")}
+async function scanPorts(ips,plist,F){
+ let totalUp=0,foundFiltered3306=false;
+ for(const ip of ips){
+  const h=NET[ip];
+  print(`<span class="ok">Nmap scan report for ${ip}<span class="mu">${h?` (${h.host})`:""}</span></span>`);
+  if(!h){print(`<span class="mu">Host is up (simulado) — 1000 closed tcp ports.</span>\n`);continue}
+  totalUp++;
+  print(`<span class="mu">Host is up (${F.Pn?"-Pn ignorou ping":h.lat+"s latency"}).</span>`);
+  const known=Object.keys(h.ports).map(Number).sort((a,b)=>a-b);
+  const shown=(plist||known).filter(p=>{
+   const st=(h.ports[p]||{st:"closed"}).st;
+   return !(F.open&&st!=="open")});
+  if(!shown.length)print(`<span class="mu">Nenhuma porta aberta encontrada no intervalo escolhido.</span>`);
+  else{
+   print(`<span class="mu">PORT      STATE     SERVICE${(F.sV||F.A)?"                 VERSION":""}</span>`);
+   for(const p of shown){
+    const info=h.ports[p]||{st:"closed"};
+    const svc=info.svc||guessSvc(p);
+    const cls=info.st==="open"?"ok":info.st==="filtered"?"warn":"mu";
+    let line=`<span class="${cls}">${String(p).padEnd(10)}${info.st.padEnd(10)}</span><span class="hi">${svc.padEnd(17)}</span>`;
+    if((F.sV||F.A)&&info.ver)line+=`<span class="mu"> ${esc(info.ver)}</span>`;
+    print(line);
+    if(info.st==="filtered"&&p===3306&&ip===SUBNET+".5")foundFiltered3306=true}}
+  if(F.O||F.A){await sleep(220);
+   print(`<span class="mu">Running: ${h.os.includes("Windows")?"Microsoft Windows":"Linux"}</span>`);
+   print(`<span class="ok">OS details: ${esc(h.os)}</span>`);
+   print(`<span class="mu">Didático: em redes reais, o fingerprint de SO é uma estimativa probabilística.</span>`)}
+  if(F.A)print(`<span class="mu">MAC Address: ${h.mac}</span>`);
+  print(``)}
+ print(`<span class="mu">Nmap done: ${ips.length} IP(s) (${totalUp} up) scanned in ${(0.9+Math.random()*0.8).toFixed(2)}s</span>`);
+ if(F.sV)completeMission("m3");
+ if(F.O||F.A)completeMission("m4");
+ if(!F.sV&&!F.O&&!F.A)completeMission("m2");
+ if(foundFiltered3306){flag3306=true;completeMission("m7")}}
+
+/* ---------------- NETCAT ---------------- */
+function ncHelp(){print(`<span class="hi">netcat (SIMULADO — flags suportadas)</span>
+<span class="mu">  nc HOST PORTA     </span><span class="ok">conectar e interagir (banner grabbing)</span>
+<span class="mu">  nc -v HOST PORTA  </span><span class="ok">verboso</span>
+<span class="mu">  nc -zv HOST 1-500 </span><span class="ok">teste rápido de portas</span>
+<span class="mu">  nc -l PORTA       </span><span class="ok">abrir listener simulado</span>
+<span class="mu">  na sessão:        </span><span class="ok">digite linhas; HTTP: GET / HTTP/1.1; sair: .quit</span>`)}
+
+async function runNC(args){
+ const flags=args.filter(a=>a.startsWith("-")).join("");
+ const v=/v/.test(flags),z=/z/.test(flags),l=/l/.test(flags),h=/h/.test(flags);
+ const rest=args.filter(a=>!a.startsWith("-"));
+ if(h||!rest.length){ncHelp();return}
+ if(l){const port=+rest[0]||5555;
+  print(`<span class="ok">Listening on 0.0.0.0 ${port} …</span> <span class="mu">(listener simulado)</span>`);
+  ncSession={mode:"listen",port};
+  setPrompt(`nc-listen:${port}> `);
+  print(`<span class="mu">Digite linhas para enviar ao par virtual. .quit para sair.</span>`);
+  setTimeout(()=>{if(ncSession&&ncSession.mode==="listen"){
+   print(`<span class="ok">Conexão recebida de 192.168.10.20:49812</span> <span class="mu">(par virtual do laboratório)</span>`);
+   print(`<span class="hi">192.168.10.20 diz: OLA, ANALISTA! Este é o canal TCP ${port}.</span>`);
+   ncSession.echo=true}},1600);return}
+ const host=rest[0];const portTok=rest[1];
+ if(z){const spec=portTok||"1-1024";await scanNC(host,spec,v);return}
+ const port=+(portTok||0);
+ if(!port||port<1||port>65535){print(`<span class="err">nc: porta inválida. Ex.: nc 192.168.10.5 22</span>`);return}
+ const ip=resolveHost(host)||((/^\d+\.\d+\.\d+\.\d+$/.test(host)&&inSubnet(host))?host:null);
+ if(!ip){print(`<span class="err">nc: não foi possível resolver '${esc(host)}'.</span>`);return}
+ const hn=NET[ip],info=hn&&hn.ports[port];
+ if(!hn||!info||info.st!=="open"){
+  if(info&&info.st==="filtered"){print(`<span class="warn">Conexão expirou — estado FILTERED (provável firewall bloqueando).</span>`);
+   if(port===3306&&ip===SUBNET+".5"){flag3306=true;completeMission("m7")}}
+  else print(v?`<span class="err">nc: connect to ${ip} port ${port} (tcp) failed: Connection refused</span>`:`<span class="err">Connection refused.</span>`);
+  return}
+ const svc=info.svc,b=BANNERS[port];let gotBanner=false;
+ if(b){
+  let banner;
+  if(b==="{HTTP}")banner="(conectado — HTTP não envia banner sozinho; digite GET / HTTP/1.1 e Enter)";
+  else if(b==="{HTTPS}")banner="[TLS 1.3 handshake simulado — certificado do laboratório]\r\n(digite dentro da sessão para enviar HTTP)";
+  else{banner=b
+   .replace("{sshver}",info.ver?info.ver.split(" ")[0].replace("OpenSSH","OpenSSH_"):"OpenSSH")
+   .replace("{banner}",info.ver||svc)
+   .replace("{host}",hn.host)}
+  print(`<span class="ok">${esc(banner)}</span>`);gotBanner=!b.startsWith("{")}
+ else print(`<span class="mu">Conectado a ${ip}:${port} (${svc}) — serviço sem banner textual (binário). Tente outra porta ou -zv.</span>`);
+ if(v)print(`<span class="ok">Connection to ${ip} ${port} port [tcp/${svc}] succeeded!</span>`);
+ ncSession={mode:"client",ip,port,svc,httpSent:0};
+ setPrompt(`nc ${ip}:${port}> `);
+ if(svc==="http")print(`<span class="mu">Sessão HTTP aberta. Digite: GET / HTTP/1.1  (e depois Enter vazio)</span>`);
+ else print(`<span class="mu">Sessão aberta. Digite linhas; .quit para sair.</span>`);
+ if(gotBanner)completeMission("m5")}
+async function scanNC(host,spec,v){
+ const ip=resolveHost(host)||((/^\d+\.\d+\.\d+\.\d+$/.test(host)&&inSubnet(host))?host:null);
+ if(!ip){print(`<span class="err">nc: host inválido '${esc(host)}'.</span>`);return}
+ const hn=NET[ip];
+ if(!hn){print(`<span class="err">nc: host sem resposta.</span>`);return}
+ const plist=parsePortSpec(spec)||[];
+ for(const p of plist){const info=hn.ports[p];await sleep(40);
+  if(info&&info.st==="open"){
+   print(`<span class="ok">Connection to ${ip} ${p} port [tcp/${guessSvc(p)}] succeeded!</span>`)}
+  else if(info&&info.st==="filtered"&&v)
+   print(`<span class="warn">nc: ${ip} ${p} — filtered (silêncio do firewall).</span>`)}
+ print(`<span class="mu">Scan netcat concluído em ${ip} (${plist.length} portas testadas).</span>`);
+ if(Object.keys(hn.ports).some(p=>+p===3389&&hn.ports[p].st==="open"))completeMission("m6")}
+
+/* ---------------- demais comandos ---------------- */
+function runPing(t){
+ const p=parseTarget(t);
+ if(p.type==="invalid"){print(`<span class="err">ping: ${esc(p.val)}: Name or service not known</span>`);return}
+ const ip=p.type==="cidr"?p.val.split("/")[0]:p.val;
+ const hn=NET[ip];
+ print(`<span class="mu">PING ${ip} 56 bytes of data:</span>`);
+ if(hn){for(let i=0;i<3;i++)print(`<span class="ok">64 bytes from ${ip}: icmp_seq=${i+1} ttl=64 time=${(0.3+Math.random()).toFixed(1)} ms</span>`);
+  print(`\n<span class="ok">--- ${ip} ping statistics ---</span><span class="mu">3 transmitted, 3 received, 0% loss</span>`)}
+ else print(`\n<span class="err">--- statistics --- 3 transmitted, 0 received, 100% packet loss</span>`)}
+function runCmd(raw){
+ const line=raw.trim();if(!line)return;
+ echoCmd(line);hist.push(line);hi=hist.length;
+ const[cmd,...args]=line.split(/\s+/);
+ switch(cmd.toLowerCase()){
+  case"help":print(`<span class="hi">Comandos do NetLab (emulador offline):</span>
+<span class="mu">  nmap [flags] ALVO    </span><span class="ok">varredura simulada (--help)</span>
+<span class="mu">  nc|netcat|ncat ...   </span><span class="ok">conexões/banner/scan simulados (-h)</span>
+<span class="mu">  ping ALVO            </span><span class="ok">testa reachability</span>
+<span class="mu">  ip a | ifconfig      </span><span class="ok">seu IP no lab (${MYIP})</span>
+<span class="mu">  motd · date · clear  </span><span class="ok">extras</span>
+<span class="warn">Alvos válidos: 192.168.10.x, nomes de host do lab ou 192.168.10.0/24</span>`);break;
+  case"nmap":busy=true;runNmap(args).finally(()=>busy=false);break;
+  case"nc":case"netcat":case"ncat":busy=true;runNC(args).finally(()=>busy=false);break;
+  case"ping":runPing(args[0]);break;
+  case"ip":print(`<span class="ok">1: lo … 2: eth0</span><span class="mu">  inet </span><span class="ok">${MYIP}/24</span><span class="mu">  brd 192.168.10.255</span>`);break;
+  case"ifconfig":print(`<span class="ok">eth0: inet ${MYIP}  netmask 255.255.255.0</span>`);break;
+  case"motd":print(`<span class="hi">Bem-vindo ao NetLab! 🖥️</span>
+Rede virtual: <span class="ok">${SUBNET}.0/24</span> · Você é: <span class="ok">${MYIP}</span>
+Complete as 7 missões no painel lateral. Comece com:
+  <span class="ok">nmap -sn ${SUBNET}.0/24</span>
+<span class="warn">Tudo aqui é simulado — nenhum pacote de rede real é gerado.</span>`);break;
+  case"date":print(new Date().toString());break;
+  case"clear":out.innerHTML="";break;
+  case"sudo":print(`<span class="warn">analyst não está no arquivo sudoers. (No lab não precisava 😉)</span>`);break;
+  case"whoami":print("analyst");break;
+  case"exit":print(`<span class="mu">Sessão encerrada… (recarregue a página para voltar)</span>`);break;
+  default:print(`<span class="err">${esc(cmd)}: comando não encontrado. Digite 'help'.</span>`)}}
+function handleNcLine(v){
+ echoCmd(v);
+ if(v.trim()===".quit"){print(`<span class="mu">Sessão encerrada.</span>`);ncSession=null;setPrompt("analyst@netlab:~$");return}
+ if(ncSession.mode==="listen"){
+  if(ncSession.echo)print(`<span class="hi">192.168.10.20 responde: ECHO&gt; ${esc(v)}</span>`);
+  else print(`<span class="mu">…aguardando o par virtual conectar (~2s)…</span>`);return}
+ if(ncSession.mode==="client"&&ncSession.svc==="http"){
+  if(/^GET \/ HTTP\/1\.[01]$/i.test(v.trim())){ncSession.httpSent=1;
+   print(`<span class="mu">aguardando linhas de cabeçalho… (Enter vazio para enviar)</span>`);return}
+  if(v.trim()===""&&ncSession.httpSent){
+   print(`<span class="ok">${esc(HTTPPAGE).replace(/\r\n/g,"\n")}</span>`);
+   print(`<span class="mu">Resposta HTTP recebida — banner grabbing concluído.</span>`);
+   completeMission("m5");return}}
+ print(`<span class="mu">enviado (${v.length} bytes) — sem resposta textual do serviço.</span>`)}
+
+/* input */
+inp.addEventListener("keydown",e=>{
+ if(busy&&e.key!=="Tab"){e.preventDefault();return}
+ if(e.key==="Enter"){const v=inp.value;inp.value="";
+  if(ncSession){handleNcLine(v);return}
+  runCmd(v)}
+ else if(e.key==="ArrowUp"){hi=Math.max(0,hi-1);inp.value=hist[hi]||"";e.preventDefault()}
+ else if(e.key==="ArrowDown"){hi=Math.min(hist.length,hi+1);inp.value=hist[hi]||"";e.preventDefault()}
+ else if(e.key==="Tab"){e.preventDefault();
+  const words=inp.value.split(/\s+/),last=words[words.length-1];
+  if(words.length===1){const cands=["nmap ","nc ","ping ","help","clear","motd","ip a"];
+   const m=cands.filter(c=>c.startsWith(last));if(m.length===1)inp.value=m[0]}
+  else{const hosts=Object.keys(NET).concat(Object.values(NET).map(h=>h.host));
+   const m=hosts.filter(h=>h.startsWith(last));
+   if(m.length===1){words[words.length-1]=m[0];inp.value=words.join(" ")}}}});
+
+/* botões da interface */
+ $("btnAbout").onclick=()=>{$("aboutModal").classList.remove("hidden")};
+function closeAbout(){$("aboutModal").classList.add("hidden");inp.focus()}
+ $("closeAbout").addEventListener("click",closeAbout);
+document.addEventListener("keydown",e=>{
+ if(!$("aboutModal").classList.contains("hidden")&&e.key==="Escape")closeAbout()});
+ $("btnMute").onclick=e=>{muted=!muted;e.target.textContent=muted?"🔇":"🔊"};
+ $("btnReset").onclick=()=>{if(confirm("Resetar missões e recomeçar o laboratório?")){missions={};saveM();renderMissions();out.innerHTML="";banner();ncSession=null;setPrompt("analyst@netlab:~$")}};
+let t0=Date.now();setInterval(()=>{const s=Math.floor((Date.now()-t0)/1000);
+ $("sessTime").textContent=`${String(Math.floor(s/60)).padStart(2,"0")}:${String(s%60).padStart(2,"0")}`},1000);
+document.addEventListener("click",e=>{if(!e.target.closest("button")&&!e.target.closest(".modal")&&!e.target.closest("input"))inp.focus()});
+
+/* capturador de erros (depuração amigável) */
+window.addEventListener("error",ev=>{try{print(`<span class="err">[erro interno] ${esc(ev.message||"desconhecido")}</span>`)}catch(_){}});
+
+/* boot */
+function banner(){
+ print(`<span class="hi">╔══════════════════════════════════════════════════════════╗</span>`);
+ print(`<span class="hi">║   NetLab Simulator — emulador offline de nmap & netcat   ║</span>`);
+ print(`<span class="hi">╚══════════════════════════════════════════════════════════╝</span>`);
+ print(`<span class="mu">Rede virtual: ${SUBNET}.0/24 · Seu IP: ${MYIP} · Nenhum pacote real é gerado.</span>`);
+ print(`<span class="mu">Digite 'help' para comandos, 'motd' para dicas, ou comece:</span>`);
+ print(`<span class="ok">  nmap -sn ${SUBNET}.0/24</span>`);
+ print(``)}
+try{renderMissions();banner()}catch(e){print(`<span class="err">[falha na inicialização] ${esc(e.message)}</span>`)}
+inp.focus();
+</script>
+</body>
+</html>
