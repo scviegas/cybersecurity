@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>🎣 PhishTank — Simulador Educacional de Phishing</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --b900:#0b1220;--b800:#101a2e;--b700:#0d47a1;--b600:#1565c0;--b400:#2196f3;--cyan:#00b0ff;
+  --ink:#0f2440;--muted:#5b7396;--bg1:#eaf1fb;--card:#fff;--line:#d7e2f2;--r:18px;
+  --ok:#22c55e;--bad:#ef4444;--warn:#f59e0b;--gold:#ffb300;--shadow:0 10px 30px rgba(10,25,55,.12);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Poppins',system-ui,'Segoe UI',Roboto,Arial,sans-serif;color:var(--ink);min-height:100vh;
+  background:
+    radial-gradient(900px 500px at 110% -10%,rgba(0,176,255,.16),transparent 60%),
+    radial-gradient(700px 420px at -10% 110%,rgba(13,71,161,.15),transparent 60%),
+    linear-gradient(180deg,var(--bg1),#f7fafd 55%,var(--bg1));}
+.deco{position:fixed;border-radius:50%;z-index:0;pointer-events:none;opacity:.9}
+.c1{width:420px;height:420px;background:radial-gradient(circle at 30% 30%,#1565c0,#0a234f);top:-160px;left:-140px}
+.c2{width:140px;height:140px;background:#0d47a1;top:230px;left:-50px}
+.c3{width:360px;height:360px;background:radial-gradient(circle at 60% 60%,#0b3a86,#061a3a);bottom:-180px;right:-120px}
+header{position:relative;z-index:2;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 20px;flex-wrap:wrap}
+.brand b{color:var(--b700);font-size:1.05rem;display:block}
+.brand span{color:var(--muted);font-size:.75rem}
+.hud{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.chip{background:var(--card);border:1px solid var(--line);border-radius:999px;padding:6px 14px;font-weight:600;font-size:.85rem;box-shadow:var(--shadow)}
+.chip small{color:var(--muted);font-weight:400}
+button{font-family:inherit;cursor:pointer;border:none;border-radius:14px;transition:.18s}
+.btn{background:linear-gradient(135deg,var(--b600),var(--b400));color:#fff;font-weight:700;padding:14px 26px;font-size:1rem;box-shadow:0 8px 20px rgba(21,101,192,.35)}
+.btn:hover{transform:translateY(-2px);filter:brightness(1.07)}
+.btn.ghost{background:var(--card);color:var(--b700);border:1.5px solid var(--line);box-shadow:var(--shadow)}
+.btn.small{padding:9px 16px;font-size:.85rem;border-radius:11px}
+main{position:relative;z-index:2;max-width:980px;margin:0 auto;padding:10px 16px 60px}
+.hidden{display:none!important}
+.screen{animation:fade .35s ease}
+@keyframes fade{from{opacity:0;transform:translateY(10px)}to{opacity:1}}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);padding:26px}
+.center{text-align:center}
+h1{font-size:clamp(1.5rem,4vw,2.2rem);color:var(--b800);line-height:1.2}
+h2{font-size:1.25rem;color:var(--b800)}
+h3{font-size:1rem;color:var(--b700);margin:14px 0 6px}
+.sub{color:var(--muted);font-size:.95rem;margin:8px 0 18px}
+.rules{text-align:left;margin:14px auto 18px;max-width:600px}
+.rules li{margin:7px 0;font-size:.92rem;color:#33507a;list-style:none;padding-left:26px;position:relative}
+.rules li::before{content:"✔";position:absolute;left:0;color:var(--ok);font-weight:800}
+input{font-family:inherit;font-size:1rem;padding:12px 14px;border:1.5px solid var(--line);border-radius:12px;outline:none;width:min(320px,90%);text-align:center}
+input:focus{border-color:var(--b400);box-shadow:0 0 0 4px rgba(33,150,243,.15)}
+.levels{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:14px;margin-top:18px}
+.lvl{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:18px;box-shadow:var(--shadow);text-align:left;display:flex;flex-direction:column;gap:8px}
+.lvl h3{margin:0;font-size:.98rem;display:flex;gap:8px;align-items:center}
+.lvl .meta{font-size:.8rem;color:var(--muted)}
+.lvl .stars{color:var(--gold);letter-spacing:2px;font-size:.9rem}
+.lvl.locked{opacity:.55;filter:grayscale(.4)}
+.lvl .tipbtn{background:#e8f2ff;color:var(--b700);font-weight:600;padding:7px 12px;border-radius:10px;font-size:.8rem;align-self:flex-start}
+.tipbox{background:#f0f7ff;border:1px dashed var(--b400);border-radius:12px;padding:10px 12px;font-size:.8rem;color:#28527f;margin-top:4px}
+.ethic{background:#fff8e1;border:1.5px solid #ffe08a;color:#7a5b00;border-radius:13px;padding:12px 16px;font-size:.82rem;margin:14px 0;line-height:1.55;text-align:left}
+.ethic b{display:block;margin-bottom:4px}
+/* e-mail */
+.mail{border:1.5px solid var(--line);border-radius:14px;overflow:hidden;background:#fff;margin-top:10px}
+.mhead{display:flex;gap:12px;padding:14px 16px;background:#f4f8ff;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.avatar{width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,var(--b600),var(--cyan));color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;flex-shrink:0}
+.mmeta{flex:1;min-width:220px}
+.mmeta .disp{font-weight:700}
+.mmeta .addr{font-size:.8rem;color:var(--muted);word-break:break-all}
+.mmeta .subj{font-weight:700;margin-top:4px}
+.mmeta .date{font-size:.75rem;color:var(--muted)}
+.mbody{padding:16px 18px;font-size:.92rem;line-height:1.7;color:#25405f}
+.mbody p{margin:8px 0}
+.mbody .rf{border-radius:4px;padding:1px 3px;transition:.3s}
+.mail.revealed .mbody .rf{background:#ffe3e0;outline:1.5px dashed #ef4444}
+.mail.legit .mbody .rf{background:#e3f7e8;outline:1.5px dashed #22c55e}
+.mlink{color:#1565c0;text-decoration:underline;cursor:help;position:relative}
+.mlink .real{display:none;font-size:.75rem;background:#0b1f3d;color:#a8e0ff;border-radius:8px;padding:8px 10px;position:absolute;left:0;top:130%;z-index:5;max-width:320px;white-space:normal;box-shadow:0 8px 20px rgba(0,0,0,.35)}
+.mlink.show .real{display:block}
+.attach{display:inline-flex;align-items:center;gap:7px;background:#f2f6fc;border:1px solid var(--line);border-radius:10px;padding:7px 11px;font-size:.8rem;margin:6px 6px 0 0;cursor:help}
+.attach:hover{border-color:var(--b400)}
+.mtools{display:flex;gap:8px;flex-wrap:wrap;padding:10px 16px;background:#f9fbff;border-top:1px dashed var(--line)}
+.tool{background:#eef4ff;border:1px solid #cfe0f7;color:#28527f;font-size:.78rem;font-weight:600;padding:6px 12px;border-radius:9px}
+.tool:hover{background:#e0edff}
+.mheadbox{background:#0b1f3d;color:#cfe3ff;font-family:Consolas,monospace;font-size:.75rem;line-height:1.6;padding:12px 14px;white-space:pre-wrap;border-top:1px solid var(--line)}
+.mactions{display:flex;gap:10px;flex-wrap:wrap;padding:14px 16px;border-top:1px solid var(--line);background:#fff}
+.act{flex:1;min-width:150px;padding:13px;border-radius:12px;font-weight:800;font-size:.95rem}
+.act.phish{background:#fdecec;color:#b91c1c;border:2px solid #f5b3b3}
+.act.phish:hover{background:#fbd3d3}
+.act.legit{background:#e9fbef;color:#15803d;border:2px solid #b0e6c3}
+.act.legit:hover{background:#d5f5e0}
+.act.dunno{background:#f1f5fb;color:#5b7396;border:2px dashed #c9d8ee}
+.fb{border-radius:13px;padding:14px 16px;margin-top:14px;font-size:.9rem;line-height:1.6;animation:fade .3s}
+.fb.ok{background:#e9fbef;border:1.5px solid var(--ok)}
+.fb.bad{background:#fdecec;border:1.5px solid var(--bad)}
+.fb b{display:block;margin-bottom:5px}
+.fb ul{padding-left:20px}
+.fb li{margin:5px 0;font-size:.86rem}
+.pbar{height:10px;background:#e3edfb;border-radius:99px;overflow:hidden;margin:8px 0 14px}
+.pbar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--b600),var(--cyan));transition:width .4s}
+.quizhead{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:8px}
+.q{font-size:1.1rem;font-weight:600;color:var(--b900);margin-bottom:14px;line-height:1.45}
+.opts{display:grid;gap:10px}
+.opt{text-align:left;background:#f5f9ff;border:1.5px solid var(--line);padding:13px 15px;border-radius:13px;font-size:.93rem;color:#22406b;font-weight:500}
+.opt:hover:not(:disabled){border-color:var(--b400);background:#eaf4ff;transform:translateX(3px)}
+.opt .k{display:inline-block;background:var(--b700);color:#fff;border-radius:7px;width:24px;height:24px;text-align:center;line-height:24px;font-size:.75rem;margin-right:9px;font-weight:700}
+.opt.ok{background:#e9fbef;border-color:var(--ok);color:#14532d}.opt.ok .k{background:var(--ok)}
+.opt.bad{background:#fdecec;border-color:var(--bad);color:#7f1d1d;animation:shake .4s}
+.opt:disabled{cursor:default}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-7px)}75%{transform:translateX(7px)}}
+.next{margin-top:14px;float:right}
+/* detector */
+.detwrap{display:grid;grid-template-columns:1.4fr 1fr;gap:16px;margin-top:12px}
+@media(max-width:760px){.detwrap{grid-template-columns:1fr}}
+.detmail{border:1.5px solid var(--line);border-radius:14px;overflow:hidden;background:#fff}
+.detmail .mbody mark{cursor:pointer;background:transparent;border-radius:4px;padding:1px 3px}
+.detmail .mbody mark:hover{background:#fff3cd}
+.detmail .mbody mark.hit{background:#c9f2d6;outline:1.5px solid var(--ok);cursor:default}
+.detmail .mbody mark.miss{animation:shake .4s;background:#ffd9d6}
+.sidepanel{background:#f7faff;border:1.5px solid var(--line);border-radius:14px;padding:14px;font-size:.85rem}
+.sidepanel h4{color:var(--b700);font-size:.8rem;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px}
+.foundlist{list-style:none}
+.foundlist li{padding:7px 10px;border-radius:9px;background:#eef6ff;margin-bottom:6px;font-size:.8rem;color:#28527f}
+.foundlist li.hit{background:#e9fbef;color:#14532d;border:1px solid #b7e4c0}
+/* steps */
+.steps{display:grid;gap:12px;margin-top:14px}
+.step{display:flex;gap:14px;background:#f7faff;border:1.5px solid var(--line);border-radius:14px;padding:14px 16px}
+.step .ic{font-size:1.8rem}
+.step b{color:var(--b800)}
+.step p{font-size:.87rem;color:#2b4568;line-height:1.6;margin-top:3px}
+.modal{position:fixed;inset:0;z-index:50;background:rgba(8,18,32,.55);display:flex;align-items:center;justify-content:center;padding:18px;animation:fade .25s}
+.mcard{background:#fff;border-radius:20px;max-width:440px;width:100%;padding:28px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.35);animation:pop .3s}
+@keyframes pop{from{transform:scale(.85);opacity:0}to{transform:scale(1);opacity:1}}
+.bigstars{font-size:2.4rem;letter-spacing:6px;margin:6px 0;color:var(--gold)}
+.resgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin:18px 0}
+.stat{background:#f2f8ff;border:1px solid var(--line);border-radius:14px;padding:12px}
+.stat b{font-size:1.35rem;color:var(--b700);display:block}
+.stat span{font-size:.72rem;color:var(--muted)}
+.badge{font-size:1.25rem;font-weight:800;color:var(--b800);background:linear-gradient(135deg,#fff8e1,#ffe9b0);border:1px solid #f3d47c;padding:12px 20px;border-radius:14px;display:inline-block;margin:10px 0}
+#confetti{position:fixed;inset:0;pointer-events:none;z-index:60;overflow:hidden}
+.cf{position:absolute;top:-12px;border-radius:3px;animation:fall linear forwards}
+@keyframes fall{to{transform:translateY(105vh) rotate(720deg)}}
+footer{position:relative;z-index:2;text-align:center;color:var(--muted);font-size:.72rem;padding:0 16px 26px;line-height:1.7}
+footer b{color:var(--b700)}
+.logo{width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,var(--b600),var(--cyan));display:inline-flex;align-items:center;justify-content:center;font-size:1.3rem;color:#fff;box-shadow:var(--shadow);margin-bottom:8px}
+</style>
+</head>
+<body>
+<div class="deco c1"></div><div class="deco c2"></div><div class="deco c3"></div>
+
+<header>
+  <div class="brand"><b>🎣 PhishTank</b><span>Simulador educacional de phishing · 100% local e fictício</span></div>
+  <div class="hud">
+    <div class="chip">🏆 <small>Pontos:</small> <span id="hudScore">0</span></div>
+    <div class="chip">🔥 <small>Sequência:</small> <span id="hudStreak">0</span></div>
+    <button class="chip" id="btnMute" title="Som">🔊</button>
+    <button class="chip" id="btnHome" title="Menu">🏠</button>
+  </div>
+</header>
+
+<main>
+  <!-- START -->
+  <section id="scr-start" class="screen">
+    <div class="card center">
+      <div class="logo">🎣</div>
+      <h1>PhishTank 🎣</h1>
+      <p class="sub">Aprenda a <b>identificar e resistir</b> a golpes de phishing — simulando o lado de quem recebe o e-mail.</p>
+      <ul class="rules">
+        <li><b>4 módulos:</b> Caixa de Entrada · Caça aos Sinais · Por Trás do Golpe · Sala de Defesa</li>
+        <li>Inspecione <b>remetentes, links e anexos</b> antes de decidir: phishing ou legítimo?</li>
+        <li>Cada acerto vale <b>10 pontos</b>; cada sinal encontrado na caça vale <b>5</b></li>
+        <li>Tudo é <b>fictício e local</b> — nada é enviado, nada sai do seu navegador</li>
+      </ul>
+      <div class="ethic"><b>⚖️ Aviso ético</b>Este simulador é <b>apenas educacional</b>. Todos os remetentes, domínios, endereços e empresas são <b>fictícios</b>. Não há envio de mensagens, coleta de dados ou acesso a sites reais — a página funciona totalmente offline e nenhum dado que você digitar sai deste dispositivo. Use-o para treinar <b>defesa</b>, jamais para enganar pessoas.</div>
+      <input id="inpName" maxlength="18" placeholder="Seu codinome de analista…">
+      <div style="margin-top:12px"><button class="btn" id="btnStart">▶ Entrar no PhishTank</button></div>
+      <p class="sub" style="margin-top:14px" id="bestTxt">Melhor pontuação: —</p>
+      <button class="btn ghost small" id="btnReset">🗑 Zerar progresso</button>
+    </div>
+  </section>
+
+  <!-- MENU -->
+  <section id="scr-levels" class="screen hidden">
+    <div class="card center">
+      <h1>Central de Treinamento</h1>
+      <p class="sub" id="welcomeTxt"></p>
+      <div class="levels" id="lvlGrid"></div>
+      <div style="margin-top:20px"><button class="btn" id="btnFinish">📊 Relatório Final</button></div>
+    </div>
+  </section>
+
+  <!-- INBOX -->
+  <section id="scr-inbox" class="screen hidden">
+    <div class="card">
+      <div class="quizhead"><span class="chip" id="ibLevel">📬 Caixa de Entrada</span><span class="chip" id="ibCount"></span></div>
+      <div class="pbar"><i id="ibBar"></i></div>
+      <p class="sub" style="margin:0 0 4px">Analise com calma: <b>remetente, domínio, links (passe o mouse/clique para revelar o destino real), anexos e tom</b>. Depois classifique.</p>
+      <div id="ibMail"></div>
+    </div>
+  </section>
+
+  <!-- DETECT -->
+  <section id="scr-detect" class="screen hidden">
+    <div class="card">
+      <div class="quizhead"><span class="chip" id="dtLevel">🔍 Caça aos Sinais</span><span class="chip" id="dtCount">Sinais: 0/7</span></div>
+      <p class="sub" style="margin:0">Este "e-mail corporativo" esconde <b>7 sinais de phishing</b>. Clique diretamente nos trechos suspeitos do texto. <b>Dica:</b> não esqueça de inspecionar o link com o mouse!</p>
+      <div class="detwrap">
+        <div class="detmail">
+          <div class="mhead"><div class="avatar">IT</div><div class="mmeta">
+            <div class="disp">Equipe de TI — Suporte</div>
+            <div class="addr">it-suporte-corp.xyz &lt;nao-responda@it-suporte-corp.xyz&gt;</div>
+            <div class="subj">[AÇÃO URGENTE] Atualização obrigatória de senha — 2 horas</div>
+            <div class="date">Hoje, 08:12</div></div></div>
+          <div class="mbody" id="dtBody">
+            <p>Prezado usuário,</p>
+            <p>Devido a uma <mark data-flag="f1">falha crítica de segurança detectada nas últimas horas</mark>, todos os colaboradores devem <mark data-flag="f2">atualizar a senha corporativa em até 2 horas</mark>, sob risco de <mark data-flag="f2">bloqueio imediato do acesso</mark>.</p>
+            <p>Acesse agora o portal pelo link: <a class="mlink" href="#" data-real="http://198.51.100.23:8080/portal/login.html" data-flag="f3"><mark data-flag="f3">portal.corp.com/login</mark><span class="real">🚩 Destino real deste link:<br><b>http://198.51.100.23:8080/portal/login.html</b><br>(endereço numérico estranho + página de login em HTTP puro)</span></a></p>
+            <p><mark data-flag="f4">Informe seu usuário e senha atuais no formulário</mark> e <mark data-flag="f4">confirme no campo "senha anterior"</mark> para a sincronização.</p>
+            <p>Caso tenha dúvidas, <mark data-flag="f5">responda este e-mail para seguranca.ti.corp@gmail.com</mark>.</p>
+            <p>Anexo: <span class="attach" data-flag="f6" title="Página HTML que pode imitar um formulário de login — anexos .html/.exe/.zip são sinais clássicos de phishing">📎 politica_nova_senhas.html (312 KB)</span></p>
+            <p><mark data-flag="f7">Atenciosamente,<br>Setor de TI</mark></p>
+          </div>
+        </div>
+        <div class="sidepanel">
+          <h4>Sinais encontrados</h4>
+          <ul class="foundlist" id="dtList"></ul>
+          <button class="btn small" id="dtFinish" style="margin-top:8px">Entregar análise ✅</button>
+        </div>
+      </div>
+      <div id="dtFb"></div>
+    </div>
+  </section>
+
+  <!-- STEPS -->
+  <section id="scr-steps" class="screen hidden">
+    <div class="card">
+      <div class="quizhead"><span class="chip" id="stLevel">🕵️ Por Trás do Golpe</span><span class="chip" id="stCount"></span></div>
+      <div class="pbar"><i id="stBar"></i></div>
+      <div id="stContent"></div>
+    </div>
+  </section>
+
+  <!-- QUIZ (defesa) -->
+  <section id="scr-quiz" class="screen hidden">
+    <div class="card">
+      <div class="quizhead"><span class="chip" id="qLevel"></span><span class="chip" id="qCount"></span></div>
+      <div class="pbar"><i id="qBar"></i></div>
+      <div class="q" id="qText"></div>
+      <div class="opts" id="qOpts"></div>
+      <div id="qFb"></div>
+      <button class="btn next hidden" id="qNext">Continuar ➜</button>
+    </div>
+  </section>
+
+  <!-- RESULT -->
+  <section id="scr-result" class="screen hidden">
+    <div class="card center">
+      <div style="font-size:3.4rem" id="resEmoji">🛡️</div>
+      <h1 id="resRank">Relatório</h1>
+      <div class="badge" id="resBadge"></div>
+      <div class="resgrid">
+        <div class="stat"><b id="resPts">0</b><span>PONTOS</span></div>
+        <div class="stat"><b id="resPct">0%</b><span>APROVEITAMENTO</span></div>
+        <div class="stat"><b id="resStars">0</b><span>ESTRELAS ⭐</span></div>
+      </div>
+      <div id="resDetail" style="text-align:left;font-size:.85rem;color:#33507a;margin-bottom:18px"></div>
+      <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+        <button class="btn" id="btnReplay">🔁 Treinar Novamente</button>
+        <button class="btn ghost" id="btnMap">🏠 Central</button>
+      </div>
+    </div>
+  </section>
+</main>
+
+<div class="modal hidden" id="modal"><div class="mcard" id="mcard"></div></div>
+<div id="confetti"></div>
+
+<footer><b>🎣 PhishTank — simulador educacional, 100% fictício e local.</b><br>
+Todos os nomes, domínios e endereços são inventados apenas para treinamento de conscientização. Nenhum dado é coletado ou transmitido; nenhum e-mail ou site real é acessado. Uso para defesa e aprendizado — © 2026 | Todos os direitos reservados.</footer>
+
+<script>
+/* ================= DADOS ================= */
+const DEFENSE=[
+{q:"Você recebe um e-mail urgente pedindo sua senha. O que fazer?",
+ o:["Não clicar em nada e reportar ao canal oficial de TI/segurança","Responder rápido para não perder o acesso","Digitar a senha apenas na página do link, com cuidado","Encaminhar a um colega para ele verificar"],a:0,
+ e:"Urgência + pedido de credenciais = sinal clássico de phishing. Reporte e exclua; a área de TI confirmará por canais oficiais."},
+{q:"Por que golpistas criam urgência ('sua conta será bloqueada em 24h')?",
+ o:["Para que você aja por impulso, sem analisar os sinais de alerta","Porque os sistemas realmente bloqueiam em 24h","Para deixar o e-mail mais curto","Porque é exigência dos servidores de e-mail"],a:0,
+ e:"A pressão emocional (medo, urgência, autoridade) é o coração da engenharia social: reduz sua capacidade de análise."},
+{q:"Qual é a verificação mais confiável antes de usar um link recebido?",
+ o:["Inspecionar o destino real do link (e conferir o domínio caractere por caractere), preferindo digitar o endereço oficial no navegador","Confiar no texto azul sublinhado do link","Verificar se o e-mail tem bom design","Clicar e olhar rapidamente se 'parece' o site certo"],a:0,
+ e:"O texto visível de um link pode dizer qualquer coisa; o destino real pode ser um domínio parecido ou um endereço IP. Digitando o site oficial você elimina o risco."},
+{q:"O que significa 'domínio parecido' (ex.: paypa1.com, banco-seguro-secure.net)?",
+ o:["Uma técnica de imitação visual que explora a pressa do leitor — sempre confira o domínio completo, não só o nome da marca","Um domínio mais seguro que o original","Um redirecionamento automático oficial","Um certificado de segurança especial"],a:0,
+ e:"Substituições de caracteres e palavras extras criam domínios quase idênticos. O domínio completo — até o final do '.com' — é o que conta."},
+{q:"Um anexo 'fatura.html' ou 'boleto.zip' chega de remetente desconhecido. Qual a atitude correta?",
+ o:["Não abrir; tipos como .html, .exe, .zip e macro-habilitados são veículos comuns de malware — confirmar com o remetente por canal oficial","Abrir porque é só um HTML","Encaminhar para todos avisando","Renomear o arquivo antes de abrir"],a:0,
+ e:"Anexos podem conter páginas falsas de login ou malware. A confirmação sempre deve ser feita por um canal que VOCÊ iniciou."}];
+
+const STEPS=[
+ {ic:"🎯",t:"Etapa 1 — Coleta (Recon)",d:"O golpista reúne dados públicos: nomes de empresas, formatos de e-mail, eventos (mudança de sistema, faturamento, safra de contratações). Quanto mais real o contexto, mais crível a isca. Defesa: minimize a exposição de informações e desconfie de contextualismo perfeito."},
+ {ic:"🎣",t:"Etapa 2 — Isca (Lure)",d:"Chega a mensagem com gatilhos emocionais: urgência ('em 24h'), medo ('conta bloqueada'), autoridade ('diretoria'), ganho ('prêmio', 'reembolso'). O objetivo não é técnico — é fazer você agir sem analisar. Defesa: urgência é o primeiro sinal de alerta."},
+ {ic:"🪤",t:"Etapa 3 — Golpe (Hook)",d:"Um link leva a uma página que imita o site real (domínio parecido) ou um anexo instala algo. Tudo foi desenhado para parecer legítimo no primeiro olhar. Defesa: inspecione o destino real do link; desconfie de pedidos de senha/código/cartão."},
+ {ic:"📤",t:"Etapa 4 — Coleta & Uso (Harvest)",d:"As credenciais são registradas e usadas (ou vendidas) rapidamente: acesso a contas, pagamentos, novos golpes em nome do alvo. Por isso cada segundo importa ao detectar. Defesa: se caiu, troque senhas imediatamente, ative 2FA e reporte."}];
+
+const STEPQ=[
+ {q:"Qual é o principal objetivo da etapa de 'Isca'?",
+  o:["Provocar uma reação emocional que reduza a análise crítica da vítima","Invadir o servidor de e-mail da vítima","Descobrir a senha por força bruta","Instalar um antivírus falso"],a:0,
+  e:"A engenharia social ataca a pessoa, não o computador: urgência, medo e autoridade fazem o trabalho sujo."},
+ {q:"Em que etapa as credenciais são realmente capturadas?",
+  o:["No 'Golpe' (página falsa/anexo), sendo usadas na etapa 'Coleta & Uso'","Na coleta de dados públicos","No envio do e-mail","Na abertura da caixa de entrada"],a:0,
+  e:"A isca traz o alvo; a página falsa (ou malware) coleta; o uso acontece logo depois — daí a pressa do atacante."},
+ {q:"Por que golpes bem-sucedidos 'gastam' as credenciais rápido?",
+  o:["Porque a vítima pode perceber, trocar senhas e reportar — quanto mais cedo, menor a janela do atacante","Porque as senhas expiram em 1 hora","Porque os servidores bloqueiam sozinhos","Porque as contas pagam aluguel"],a:0,
+  e:"Sua resposta rápida (trocar senhas + 2FA + reportar) fecha a janela de exploração."}];
+
+/* Caixa de entrada: 12 e-mails */
+const MAILBOX=[
+{phish:1,diff:"Fácil",disp:"Banco Seguro",addr:"alerta@bnc-secure-alerts.xyz",date:"Hoje, 07:41",
+ subj:"🚨 CONTA SUSPENSA — Confirme seus dados agora",
+ body:`<p>Prezado cliente,</p><p>Detectamos uma <span class="rf">tentativa de acesso suspeita</span> e sua conta foi <span class="rf">SUSPENSA temporariamente</span>.</p><p>Você tem <span class="rf">24 horas</span> para confirmar sua identidade através do botão abaixo, <span class="rf">informando agência, conta e senha</span>:</p>
+ <p><a class="mlink" href="#" data-real="http://bnc-secure-alerts.xyz/verificar?id=88123">🔐 Desbloquear minha conta</a></p>
+ <p><span class="rf">Atenciosamente, Equipe de Segurança</span></p>`,
+ att:[],why:["Domínio falso: <b>bnc-secure-alerts.xyz</b> não é o domínio do banco (que seria curto e oficial)","Urgência e ameaça ('24 horas', 'SUSPENSA') para forçar ação por impulso","Pede dados sensíveis: agência, conta e <b>senha</b> — nenhum banco legítimo faz isso por e-mail","Link com destino real em domínio estranho (inspecione antes de clicar)","Saudação e assinatura genéricas, sem contato verificável"]},
+
+{phish:1,diff:"Fácil",disp:"Loteria Nacional Int.",addr:"premios@sorteio-internacional-biz.net",date:"Ontem, 22:03",
+ subj:"PARABÉNS!!! Você foi sorteado — USD 750.000",
+ body:`<p>Parabéns!!!</p><p>Seu e-mail foi <span class="rf">sorteado no valor de USD 750.000</span> em nosso programa internacional.</p>
+ <p>Para resgatar, <span class="rf">preencha o formulário anexo com seus dados bancários</span> e pague apenas a <span class="rf">taxa administrativa de processamento</span>.</p>
+ <p>Anexo: <span class="attach" data-info="Arquivo ZIP compactado — formato comum para esconder cargas maliciosas">📎 formulario_resgate.zip (214 KB)</span></p><p><span class="rf">Não conte com ninguém até o resgate, por segurança.</span></p>`,
+ att:["formulario_resgate.zip"],
+ why:["Prêmio que você <b>não concorreu</b> — oferta boa demais para ser verdade","Pedem <b>dados bancários</b> e uma 'taxa' — nunca se paga para receber um prêmio","Anexo .zip não solicitado","Pedido de sigilo ('não conte com ninguém') — tática para isolar a vítima"]},
+
+{phish:1,diff:"Médio",disp:"Xpress Entregas",addr:"rastreio@xpress-entrega-co.info",date:"Hoje, 09:15",
+ subj:"Sua encomenda foi retida — taxa pendente de R$ 2,99",
+ body:`<p>Olá,</p><p>Sua encomenda está <span class="rf">retida na alfândega local</span> por falta de <span class="rf">pagamento da taxa de liberação de R$ 2,99</span>.</p>
+ <p>Regularize em <span class="rf">12 horas</span> para evitar devolução: <a class="mlink" href="#" data-real="http://xpress-entrega-co.info/pagamento/boleto.php">Pagar taxa de liberação</a></p>
+ <p>Código: BR-<span class="rf">XX9917Y</span></p>`,
+ att:[],
+ why:["Domínio quase igual ao da marca real ('xpress-entrega-co.info' — tecnologia de imitação visual)","Valor pequeno (R$ 2,99) para baixar a guarda — o alvo é o formulário de cartão seguinte","Urgência de 12 horas + rastreio genérico ('XX9917Y')","Verifique sempre o rastreio diretamente no site oficial, digitando o endereço"]},
+
+{phish:1,diff:"Médio",disp:"StreamFlix",addr:"cobranca@streamflix-billing.co",date:"Ontem, 18:44",
+ subj:"Não conseguimos processar seu pagamento",
+ body:`<p>Olá,</p><p><span class="rf">Infelizmente não conseguimos processar seu pagamento</span> e sua conta está <span class="rf">pausada</span>.</p>
+ <p>Para continuar assistindo, <span class="rf">atualize os dados do cartão</span> aqui: <a class="mlink" href="#" data-real="https://streamflix-billing.co/billing/update-card">Atualizar forma de pagamento</a></p>
+ <p><span class="rf">Se não atualizar hoje, sua assinatura será cancelada</span> e o histórico será perdido.</p>`,
+ att:[],
+ why:["Display name usa a marca, mas o <b>domínio é diferente</b> (streamflix-billing.co) — sempre confira o endereço completo","Pede dados de <b>cartão de crédito</b> por link de e-mail","Ameaça de perder histórico para criar pressa","Correto: abrir o app/site oficial e conferir a cobrança lá"]},
+
+{phish:1,diff:"Difícil",disp:"Suporte de TI — Corporativo",addr:"it-service@corp-login.net",date:"Hoje, 08:02",
+ subj:"[AÇÃO NECESSÁRIA] Renovação de senha corporativa",
+ body:`<p>Colaborador,</p><p>Conforme a política 7.2, <span class="rf">sua senha corporativa expira hoje às 18h</span>. Renove no portal: <a class="mlink" href="#" data-real="https://corp-login.net/renew">portal.corp.com/renew</a></p>
+ <p>Você precisará <span class="rf">informar usuário e senha atuais</span> para validação.</p>
+ <p>Em caso de dúvidas, responda a: <span class="rf">suporte.corp.ti@gmail.com</span></p>`,
+ att:[],
+ why:["O <b>texto do link</b> diz 'portal.corp.com', mas o <b>destino real é corp-login.net</b> — inspecione sempre","O canal de resposta é um <b>@gmail.com</b> — nenhuma empresa séria usa e-mail pessoal para suporte","Urgência de mesmo dia + tom oficial falso","Contate o TI pelo canal interno conhecido, nunca pelo link do e-mail"]},
+
+{phish:1,diff:"Difícil",disp:"Departamento Fiscal",addr:"notificacao@fiscais-digitais-noticias.com",date:"Hoje, 10:31",
+ subj:"Notificação de processo — comparecimento obrigatório",
+ body:`<p>Prezado(a),</p><p>Foi protocolada <span class="rf">notificação de processo em seu nome</span>. O documento segue em anexo.</p>
+ <p><span class="rf">Caso não compareça, medidas judiciais serão tomadas</span>.</p>
+ <p>Anexo: <span class="attach" data-info="Página HTML que abre como 'documento' — pode conter formulário falso ou script malicioso">📎 processo_4471_notificacao.html (289 KB)</span></p><p><span class="rf">Departamento Fiscal</span></p>`,
+ att:["processo_4471_notificacao.html"],
+ why:["Medo judicial + anexo <b>.html</b> (página falsa/registro de dados), não PDF oficial","Remetente genérico com domínio descartável","Autoridades oficiais <b>não notificam por e-mail</b> e não usam anexos assim","Saudação sem nome — notificações reais identificam o destinatário"]},
+
+{phish:1,diff:"Difícil",disp:"Atendimento — Verificação",addr:"noreply-verify@sec-msg-center.net",date:"Hoje, 14:57",
+ subj:"CÓDIGO: interrompa a transferência suspeita",
+ body:`<p>ALERTA: <span class="rf">transferência de R$ 4.850,00 em andamento</span> em sua conta.</p>
+ <p>Para <span class="rf">CANCELAR em 5 minutos</span>, informe ao atendente que ligará agora o <span class="rf">código de 6 dígitos que você receberá por SMS</span>.</p>
+ <p><span class="rf">Não desligue a ligação sob nenhuma hipótese.</span></p>`,
+ att:[],
+ why:["Golpe do 'código de verificação': o código recebido é de uma operação real que <b>eles</b> estão fazendo com sua conta","Pressão extrema ('5 minutos', 'não desligue') — nenhuma instituição exige isso","Quem tem o código tem o controle — nunca compartilhe códigos com ninguém","Se recebeu código sem pedir nada: cancele a operação pelo app oficial e reporte"]},
+
+{phish:1,diff:"Médio",disp:"RH — Portal Interno",addr:"beneficios@rh-portal-cloud.info",date:"Ontem, 11:20",
+ subj:"Bônus de fim de ano disponível — confirme dados",
+ body:`<p>Olá!</p><p>Seu <span class="rf">bônus de fim de ano</span> foi aprovado. Para o repasse, <span class="rf">confirme seus dados bancários</span> no portal: <a class="mlink" href="#" data-real="http://rh-portal-cloud.info/bonus/form">Confirmar dados bancários</a></p><p>Boas festas!</p>`,
+ att:[],
+ why:["Domínio 'rh-portal-cloud.info' — sistemas de RH reais ficam no domínio da empresa","Confirmação de dados bancários por link de e-mail é <b>sempre</b> suspeita","Confirme no canal interno oficial da empresa (intranet/TI)"]},
+
+{phish:0,diff:"Fácil",disp:"Loja Alfa",addr:"noreply@lojaalfa.com.br",date:"Ter, 16:08",
+ subj:"Pedido #A-20931 confirmado — recibo",
+ body:`<p>Olá,</p><p>Recebemos seu pedido <b>#A-20931</b> (Fone AlfaSound, R$ 189,90). Previsão de entrega: 5 dias úteis.</p>
+ <p>Acompanhe em: <a class="mlink" href="#" data-real="https://www.lojaalfa.com.br/pedido/A-20931">www.lojaalfa.com.br/pedido/A-20931</a></p>
+ <p>Dúvidas? Responda este e-mail ou acesse a Central de Ajuda no site.</p>`,
+ att:[],
+ whyL:["O link aponta para o <b>domínio oficial completo</b> (lojaalfa.com.br), compatível com o remetente","Não pede dados, senhas ou cartão — é apenas confirmação informativa","Sem urgência, sem ameaças: tom neutro de recibo"]},
+
+{phish:0,diff:"Fácil",disp:"RedeNet Fibra",addr:"faturamento@redenet-fibra.com.br",date:"Seg, 08:00",
+ subj:"Fatura de junho disponível — vence dia 10",
+ body:`<p>Prezado cliente,</p><p>Sua fatura de junho está disponível: <b>R$ 99,90</b>, vencimento dia <b>10</b>.</p>
+ <p>2ª via no portal: <a class="mlink" href="#" data-real="https://redenet-fibra.com.br/faturas">redenet-fibra.com.br/faturas</a> ou pelo app.</p><p>Atenciosamente, RedeNet</p>`,
+ att:[],
+ whyL:["Domínio oficial consistente com o remetente","Prazo normal de vencimento, sem ameaças de bloqueio imediato","Sugere o portal/app oficial — não coleta dados no e-mail"]},
+
+{phish:0,diff:"Médio",disp:"Calendário — Empresa",addr:"convites@minhaempresa.com.br",date:"Hoje, 09:30",
+ subj:"Convite: Reunião de planejamento — Qui 14h",
+ body:`<p>Convite de reunião: <b>Planejamento Q3</b>, quinta-feira, 14h, sala 3 / videochamada.</p>
+ <p>Aceitar ou recusar pelo calendário corporativo.</p><p><span class="rf">— Coordenação</span></p>`,
+ att:[],
+ whyL:["Domínio interno correto (@minhaempresa.com.br)","Sem links externos, sem pedidos de dados, sem urgência","Apesar do trecho destacado parecer genérico, o contexto é coerente: convite de calendário interno — confirme no próprio calendário se estiver em dúvida"]},
+
+{phish:0,diff:"Difícil",disp:"Serviço Nuvem — Conta",addr:"no-reply@nuvemserv.com",date:"Dom, 20:12",
+ subj:"Novo login detectado no seu dispositivo",
+ body:`<p>Olá,</p><p>Identificamos um novo acesso à sua conta de <b>Porto Alegre</b>, em <b>dom</b>, 20h02 (navegador padrão).</p>
+ <p>Foi você? <b>Não precisa fazer nada</b> — este aviso é apenas informativo.</p>
+ <p>Se <b>não</b> reconhecer: <a class="mlink" href="#" data-real="https://nuvemserv.com/seguranca">revise sua segurança em nuvemserv.com/seguranca</a> (troque a senha e ative a verificação em duas etapas).</p>`,
+ att:[],
+ whyL:["Domínio consistente, link aponta para o site oficial","<b>Não pede senha nem clique obrigatório</b>: o texto diz 'não precisa fazer nada'","Alertas reais de login informam local/horário e orientam revisão — sem medo e sem formulário no e-mail"]}
+];
+
+/* Detector: sinais */
+const DT_FLAGS={
+ f1:{n:"Contexto de 'falha crítica' recém-descoberta",e:"Cria credibilidade falsa e medo — contexto perfeito demais para ser coincidência."},
+ f2:{n:"Urgência + ameaça de bloqueio",e:"'Em 2 horas' e 'bloqueio imediato' visam impedir a análise calma."},
+ f3:{n:"Link mascarado com destino suspeito",e:"O texto diz portal.corp.com, mas o destino real é um IP numérico em HTTP puro."},
+ f4:{n:"Pedido de senha no corpo/na página",e:"Nenhum serviço legítimo pede senha atual e 'senha anterior' por formulário de e-mail."},
+ f5:{n:"Resposta para e-mail pessoal (@gmail.com)",e:"Suporte corporativo não atende por conta gratuita — Reply-To divergente é sinal clássico."},
+ f6:{n:"Anexo .html não solicitado",e:"Páginas HTML anexadas podem simular login ou executar scripts — sempre suspeitas."},
+ f7:{n:"Assinatura genérica, sem identificação",e:"'Setor de TI' sem nome, ramal ou contato verificável."}};
+
+/* ================= ESTADO ================= */
+const PTS=10, DPTS=5, BONUS=5;
+const MODULES=[
+ {id:1,icon:"📬",title:"Caixa de Entrada",kind:"inbox",meta:"12 e-mails · classifique cada um",
+  tip:"Regra de ouro: confira o DOMÍNIO completo do remetente, inspecione o destino real dos links e desconfie de urgência + pedidos de senha/cartão/código."},
+ {id:2,icon:"🔍",title:"Caça aos Sinais",kind:"detect",meta:"1 e-mail · encontre 7 sinais",
+  tip:"Passe o mouse/clique no link para ver o destino REAL. Sinais clássicos: urgência, domínio falso, pedidos de senha, anexos .html/.zip, reply para conta pessoal, assinatura genérica."},
+ {id:3,icon:"🕵️",title:"Por Trás do Golpe",kind:"steps",meta:"4 etapas + 3 perguntas",
+  tip:"O ciclo do atacante: Coleta → Isca → Golpe → Coleta & Uso. Entender o ciclo revela onde você pode quebrá-lo."},
+ {id:4,icon:"🛡️",title:"Sala de Defesa",kind:"quiz",meta:"Quiz · 5 perguntas",
+  tip:"Hábitos: verifique domínios, digite endereços oficiais, ative 2FA, nunca compartilhe códigos e reporte tudo ao canal oficial."}];
+const MAXS=[12*PTS+BONUS, 7*DPTS+BONUS, 3*PTS+BONUS, 5*PTS+BONUS];
+const TOTMAX=MAXS.reduce((a,b)=>a+b,0);
+const S={name:"Analista",runScores:{},runStars:{},streak:0,
+ inbox:{i:0,correct:0},detect:{found:new Set(),done:false},steps:{part:0,q:0,score:0},
+ quiz:{qi:0,score:0,list:null,mod:null}};
+let prog;try{prog=JSON.parse(localStorage.getItem("phishTank"))||{}}catch(e){prog={}}
+prog.unlocked=prog.unlocked||1;prog.best=prog.best||{};prog.bestTotal=prog.bestTotal||0;
+const save=()=>localStorage.setItem("phishTank",JSON.stringify(prog));
+const $=id=>document.getElementById(id);
+const screens=["scr-start","scr-levels","scr-inbox","scr-detect","scr-steps","scr-quiz","scr-result"];
+function show(id){screens.forEach(s=>$(s).classList.add("hidden"));$(id).classList.remove("hidden");window.scrollTo(0,0)}
+function updHud(){$("hudScore").textContent=Object.values(S.runScores).reduce((a,b)=>a+b,0);$("hudStreak").textContent=S.streak}
+
+/* som */
+let actx=null,muted=false;
+function beep(f,d,t="sine",v=.12){if(muted)return;try{actx=actx||new (window.AudioContext||window.webkitAudioContext)();
+ const o=actx.createOscillator(),g=actx.createGain();o.type=t;o.frequency.value=f;g.gain.value=v;
+ o.connect(g);g.connect(actx.destination);o.start();g.gain.exponentialRampToValueAtTime(.001,actx.currentTime+d);o.stop(actx.currentTime+d)}catch(e){}}
+const sOk=()=>{beep(660,.12);setTimeout(()=>beep(990,.2),110)};
+const sBad=()=>beep(170,.28,"sawtooth",.09);
+const sWin=()=>[523,659,784,1047].forEach((f,i)=>setTimeout(()=>beep(f,.22),i*140));
+ $("btnMute").onclick=e=>{muted=!muted;e.target.textContent=muted?"🔇":"🔊"};
+
+function confetti(n=90){const c=$("confetti"),cols=["#2196f3","#00b0ff","#ffb300","#22c55e","#ef4444"];
+ for(let i=0;i<n;i++){const d=document.createElement("div");d.className="cf";
+  d.style.cssText=`left:${Math.random()*100}%;width:${6+Math.random()*7}px;height:${9+Math.random()*10}px;background:${cols[i%cols.length]};animation-duration:${2+Math.random()*2}s;animation-delay:${Math.random()*.6}s`;
+  c.appendChild(d);setTimeout(()=>d.remove(),4600)}}
+
+/* start/menu */
+ $("btnStart").onclick=()=>{S.name=$("inpName").value.trim()||"Analista";$("welcomeTxt").textContent=`Bem-vindo(a), ${S.name}! Escolha um módulo de treinamento.`;renderLevels();show("scr-levels");beep(520,.1)};
+ $("btnReset").onclick=()=>{if(confirm("Apagar todo o progresso salvo?")){prog={unlocked:1,best:{},bestTotal:0};save();location.reload()}};
+ $("btnHome").onclick=()=>{renderLevels();show("scr-levels")};
+function showBest(){$("bestTxt").textContent=prog.bestTotal?`Melhor pontuação: ${prog.bestTotal}/${TOTMAX} 🛡️`:"Melhor pontuação: —"}
+showBest();
+
+function renderLevels(){const g=$("lvlGrid");g.innerHTML="";
+ MODULES.forEach((m,i)=>{const locked=m.id>prog.unlocked;const b=prog.best[m.id];
+  const d=document.createElement("div");d.className="lvl"+(locked?" locked":"");
+  d.innerHTML=`<h3>${m.icon} Módulo ${m.id}: ${m.title}</h3><span class="meta">${locked?"🔒 Complete o módulo anterior":m.meta}</span>
+   ${b?`<span class="stars">${"⭐".repeat(b.stars)}${"☆".repeat(3-b.stars)} <small style="color:var(--muted)">melhor: ${b.score} pts</small></span>`:""}
+   ${locked?"":`<button class="tipbtn">📘 Dica</button><div class="tipbox hidden">${m.tip}</div>
+   <button class="btn small" style="align-self:flex-start">${b?"🔁 Refazer":"▶ Iniciar"}</button>`}`;
+  if(!locked){d.querySelector(".tipbtn").onclick=()=>d.querySelector(".tipbox").classList.toggle("hidden");
+   d.querySelector(".btn").onclick=()=>startModule(i)}
+  g.appendChild(d)})}
+
+function startModule(i){const m=MODULES[i];
+ if(m.kind==="inbox"){S.inbox={i:0,correct:0};show("scr-inbox");renderMail()}
+ else if(m.kind==="detect"){S.detect={found:new Set(),done:false};show("scr-detect");initDetect()}
+ else if(m.kind==="steps"){S.steps={part:0,q:0,score:0};show("scr-steps");renderStep()}
+ else{S.quiz={qi:0,score:0,list:DEFENSE,mod:i};show("scr-quiz");renderQuiz()}}
+
+/* ====== MÓDULO 1: INBOX ====== */
+function renderMail(){const m=MAILBOX[S.inbox.i];
+ $("ibCount").textContent=`E-mail ${S.inbox.i+1}/${MAILBOX.length} · Dificuldade: ${m.diff}`;
+ $("ibBar").style.width=(S.inbox.i/MAILBOX.length*100)+"%";
+ const initials=m.disp.split(" ").map(w=>w[0]).join("").slice(0,2).toUpperCase();
+ const attHtml=m.att.map(a=>`<span class="attach" title="Clique em 'Decidir' após analisar. Anexos de desconhecidos NÃO devem ser abertos.">📎 ${a}</span>`).join("");
+ $("ibMail").innerHTML=`
+  <div class="mail" id="mCard">
+   <div class="mhead"><div class="avatar">${initials}</div><div class="mmeta">
+    <div class="disp">${m.disp} <span style="font-weight:400;color:var(--muted);font-size:.85rem">&lt;${m.addr}&gt;</span></div>
+    <div class="subj">${m.subj}</div><div class="date">${m.date}</div></div></div>
+   <div class="mtools">
+    <button class="tool" id="tLinks">🔍 Inspecionar links</button>
+    <button class="tool" id="tHead">⚙️ Cabeçalhos técnicos</button>
+   </div>
+   <div class="mbody">${m.body}${attHtml}</div>
+   <div class="mheadbox hidden" id="mHead">From: ${m.disp} &lt;${m.addr}&gt;
+Reply-To: ${m.phish?"suporte-atendimento@conta-gratuita-web.net":m.addr}
+Return-Path: ${m.addr}
+SPF: ${m.phish?"pass (domínio: "+m.addr.split("@")[1]+")":"pass (domínio: "+m.addr.split("@")[1]+")"}
+Assinado por DKIM: ${m.phish?"não":"sim"}</div>
+   <div class="mactions">
+    <button class="act phish" id="aPhish">🎣 É phishing</button>
+    <button class="act legit" id="aLegit">✅ É legítimo</button>
+    <button class="act dunno" id="aDunno">❓ Não sei</button>
+   </div>
+   <div id="ibFb"></div>
+  </div>`;
+ const card=$("mCard");
+ card.querySelectorAll(".mlink").forEach(a=>{
+  a.addEventListener("click",e=>{e.preventDefault();a.classList.toggle("show")})});
+ $("tLinks").onclick=()=>card.querySelectorAll(".mlink").forEach(a=>a.classList.toggle("show"));
+ $("tHead").onclick=()=>$("mHead").classList.toggle("hidden");
+ card.querySelectorAll(".attach").forEach(x=>x.addEventListener("click",()=>alert(x.dataset.info||"Anexo: avalie o tipo de arquivo e o remetente antes de qualquer coisa.")));
+ const decide=(guess)=>{
+  card.querySelectorAll(".act").forEach(b=>b.disabled=true);
+  card.querySelectorAll(".mlink").forEach(a=>a.classList.add("show"));
+  const right=guess===m.phish;const fb=$("ibFb");
+  if(m.phish)card.classList.add("revealed");else card.classList.add("legit");
+  const why=m.phish?m.why.map(w=>`<li>${w}</li>`).join(""):m.whyL.map(w=>`<li>${w}</li>`).join("");
+  if(guess==="dunno"){
+   S.streak=0;sBad();
+   fb.innerHTML=`<div class="fb bad"><b>📚 Vamos aprender juntos (0 pontos)</b>Este e-mail era <b>${m.phish?"PHISHING 🎣":"LEGÍTIMO ✅"}</b>. Sinais analisados:<ul>${why}</ul></div>`;
+  }else if(right){
+   S.inbox.correct++;S.streak++;sOk();
+   fb.innerHTML=`<div class="fb ok"><b>✅ Correto! (+${PTS} pts ${S.streak>=3?"· 🔥 "+S.streak+" seguidos":""})</b>Era ${m.phish?"<b>PHISHING 🎣</b> — cuidado!":"<b>LEGÍTIMO ✅</b> — bom olho!"}<ul>${why}</ul></div>`;
+  }else{
+   S.streak=0;sBad();
+   fb.innerHTML=`<div class="fb bad"><b>❌ Era ${m.phish?"PHISHING 🎣":"LEGÍTIMO ✅"}</b>Observe os sinais destacados no corpo do e-mail:<ul>${why}</ul></div>`;}
+  updHud();
+  const nx=document.createElement("button");nx.className="btn next";
+  nx.textContent=S.inbox.i+1<MAILBOX.length?"Próximo e-mail ➜":"Ver resultado 🎉";
+  nx.onclick=nextMail;$("ibFb").appendChild(nx);};
+ $("aPhish").onclick=()=>decide(1);
+ $("aLegit").onclick=()=>decide(0);
+ $("aDunno").onclick=()=>decide("dunno");}
+function nextMail(){S.inbox.i++;
+ if(S.inbox.i<MAILBOX.length)renderMail();
+ else{const max=MAILBOX.length*PTS;let sc=S.inbox.correct*PTS;const r=S.inbox.correct/MAILBOX.length;
+  if(S.inbox.correct===MAILBOX.length){sc+=BONUS;confetti(50)}finishModule(0,sc,max,r)}}
+
+/* ====== MÓDULO 2: DETECT ====== */
+function initDetect(){$("dtFb").innerHTML="";$("dtCount").textContent="Sinais: 0/7";
+ const names=Object.keys(DT_FLAGS);
+ $("dtList").innerHTML=names.map(k=>`<li data-k="${k}" style="opacity:.55">🔒 Sinal ${names.indexOf(k)+1}</li>`).join("");
+ document.querySelectorAll("#dtBody mark").forEach(mk=>{
+  mk.addEventListener("click",()=>{
+   if(mk.classList.contains("hit")||S.detect.done)return;
+   const k=mk.dataset.flag;
+   if(k&&DT_FLAGS[k]&&!S.detect.found.has(k)){
+    S.detect.found.add(k);mk.classList.add("hit");sOk();
+    const li=$("dtList").querySelector(`[data-k="${k}"]`);
+    li.classList.add("hit");li.style.opacity=1;
+    li.innerHTML=`✔ <b>${DT_FLAGS[k].n}</b><br><span style="font-size:.74rem">${DT_FLAGS[k].e}</span>`;
+    $("dtCount").textContent=`Sinais: ${S.detect.found.size}/7`;
+    if(S.detect.found.size===7)endDetect(true);
+   }else{mk.classList.add("miss");sBad();setTimeout(()=>mk.classList.remove("miss"),450)}})});
+ document.querySelectorAll("#dtBody .mlink").forEach(a=>{
+  a.addEventListener("click",e=>{e.preventDefault();a.classList.toggle("show")}))})
+ $("dtFinish").onclick=()=>{if(!S.detect.done)endDetect(false)};}
+function endDetect(all){
+ if(S.detect.done)return;S.detect.done=true;
+ const f=S.detect.found.size;let sc=f*DPTS;const r=f/7;
+ if(all){sc+=BONUS;confetti(50)}else{confetti(f>=5?40:0)}
+ document.querySelectorAll("#dtBody mark").forEach(mk=>{if(!mk.classList.contains("hit")&&mk.dataset.flag)mk.classList.add("miss")});
+ const miss=Object.keys(DT_FLAGS).filter(k=>!S.detect.found.has(k));
+ let html=`<div class="fb ${all?"ok":"bad"}"><b>${all?"🌟 Todos os 7 sinais encontrados! (+5 de bônus)":`Você encontrou ${f}/7 sinais`}</b>`;
+ if(miss.length)html+=`Sinais que passaram despercebidos:<ul>${miss.map(k=>`<li><b>${DT_FLAGS[k].n}</b> — ${DT_FLAGS[k].e}</li>`).join("")}</ul>`;
+ html+=`<li>Lembre-se: <b>inspecionar o destino real do link</b> teria revelado o endereço IP suspeito na hora!</li></ul></div>`;
+ $("dtFb").innerHTML=html;
+ finishModule(1,sc,7*DPTS+BONUS,r);}
+
+/* ====== MÓDULO 3: STEPS ====== */
+function renderStep(){const c=$("stContent");
+ if(S.steps.part<STEPS.length){
+  const st=STEPS[S.steps.part];
+  $("stCount").textContent=`Etapa ${S.steps.part+1}/4`;
+  $("stBar").style.width=(S.steps.part/6*100)+"%";
+  c.innerHTML=`<div class="steps"><div class="step"><div class="ic">${st.ic}</div><div><b>${st.t}</b><p>${st.d}</p></div></div></div>
+   <button class="btn next" id="stNext">${S.steps.part===3?"Ir para as perguntas ➜":"Próxima etapa ➜"}</button>`;
+  $("stNext").onclick=()=>{S.steps.part++;renderStep()};
+ }else{
+  S.steps.part=4;const q=STEPQ[S.steps.q];
+  $("stCount").textContent=`Pergunta ${S.steps.q+1}/3`;
+  $("stBar").style.width=(S.steps.part/6*100+S.steps.q/3*34)+"%";
+  c.innerHTML=`<div class="q">${q.q}</div><div class="opts" id="stOpts"></div><div id="stFb"></div>`;
+  q.o.forEach((t,ix)=>{const b=document.createElement("button");b.className="opt";
+   b.innerHTML=`<span class="k">${"ABC"[ix]}</span>${t}`;
+   b.onclick=()=>{
+    [...$("stOpts").children].forEach(x=>{x.disabled=true;
+     if(x===b&&ix===q.a)x.classList.add("ok");
+     if(x===b&&ix!==q.a)x.classList.add("bad");
+     if(ix!==q.a&&b.innerHTML.includes(q.o[q.a]))x.classList.add("ok")});
+    if(ix===q.a){S.steps.score+=PTS;S.streak++;sOk()}else{S.streak=0;sBad()}updHud();
+    $("stFb").innerHTML=`<div class="fb ${ix===q.a?"ok":"bad"}"><b>${ix===q.a?"✅ Correto!":"❌ Não foi essa…"}</b>${q.e}</div>`;
+    const nx=document.createElement("button");nx.className="btn next";
+    nx.textContent=S.steps.q+1<3?"Próxima ➜":"Finalizar módulo 🎉";
+    nx.onclick=()=>{S.steps.q++;
+     if(S.steps.q<3)renderStep();
+     else{const max=3*PTS;const sc=S.steps.score;
+      if(sc===max){confetti(50)}finishModule(2,sc,max+BONUS,sc/max)}};
+    $("stFb").appendChild(nx)};
+   $("stOpts").appendChild(b)})}}
+
+/* ====== MÓDULO 4: QUIZ ====== */
+function renderQuiz(){const q=S.quiz.list[S.quiz.qi];
+ $("qLevel").textContent=`🛡️ Sala de Defesa`;
+ $("qCount").textContent=`Pergunta ${S.quiz.qi+1}/${S.quiz.list.length}`;
+ $("qBar").style.width=(S.quiz.qi/S.quiz.list.length*100)+"%";
+ $("qText").textContent=q.q;$("qFb").innerHTML="";$("qNext").classList.add("hidden");
+ const box=$("qOpts");box.innerHTML="";
+ q.o.forEach((t,ix)=>{const b=document.createElement("button");b.className="opt";
+  b.innerHTML=`<span class="k">${"ABCD"[ix]}</span>${t}`;
+  b.onclick=()=>answer(b,ix===q.a);box.appendChild(b)})}
+function answer(btn,ok){const q=S.quiz.list[S.quiz.qi];
+ [...$("qOpts").children].forEach(b=>{b.disabled=true;
+  if(b===btn&&ok)b.classList.add("ok");
+  if(b===btn&&!ok)b.classList.add("bad");
+  if(!ok&&b.innerHTML.includes(q.o[q.a]))b.classList.add("ok")});
+ if(ok){S.quiz.score+=PTS;S.streak++;sOk()}else{S.streak=0;sBad()}updHud();
+ $("qFb").innerHTML=`<div class="fb ${ok?"ok":"bad"}"><b>${ok?"✅ Correto!":"❌ Não foi essa…"}</b>${q.e}</div>`;
+ const nx=$("qNext");nx.classList.remove("hidden");
+ nx.textContent=S.quiz.qi+1<S.quiz.list.length?"Continuar ➜":"Finalizar módulo 🎉"}
+ $("qNext").onclick=()=>{
+ if(S.quiz.qi+1<S.quiz.list.length){S.quiz.qi++;renderQuiz()}
+ else{const max=S.quiz.list.length*PTS;const sc=S.quiz.score;
+  if(sc===max)confetti(50);
+  finishModule(3,sc,max+BONUS,sc/max)}};
+
+/* ====== FINAL DE MÓDULO / RELATÓRIO ====== */
+function finishModule(mi,score,max,ratio){const m=MODULES[mi];const id=m.id;
+ S.runScores[id]=score;const stars=ratio>=.99?3:ratio>=.7?2:1;S.runStars[id]=stars;
+ if(!prog.best[id]||score>prog.best[id].score)prog.best[id]={score,stars};
+ prog.unlocked=Math.max(prog.unlocked,Math.min(id+1,MODULES.length));save();updHud();sWin();
+ const nxt=MODULES[mi+1];
+ $("mcard").innerHTML=`<div style="font-size:3rem">${stars===3?"🌟":stars===2?"🎉":"👍"}</div>
+  <h2>${m.icon} ${m.title} — concluído!</h2>
+  <div class="bigstars">${"⭐".repeat(stars)}${"☆".repeat(3-stars)}</div>
+  <p style="color:var(--muted);font-size:.9rem">Pontos: <b>${score}/${max}</b>${score===max?" — Perfeito! +5 de bônus 🎁":""}</p>
+  <div style="display:flex;gap:10px;justify-content:center;margin-top:18px;flex-wrap:wrap">
+   ${nxt?`<button class="btn" id="mNext">${nxt.icon} Módulo ${nxt.id} ➜</button>`:""}
+   <button class="btn ${nxt?"ghost":""}" id="mMap">🏠 Central</button></div>`;
+ $("modal").classList.remove("hidden");
+ if($("mNext"))$("mNext").onclick=()=>{$("modal").classList.add("hidden");startModule(mi+1)};
+ $("mMap").onclick=()=>{$("modal").classList.add("hidden");renderLevels();show("scr-levels")}}
+
+ $("btnFinish").onclick=()=>{
+ const total=Object.values(S.runScores).reduce((a,b)=>a+b,0);
+ if(!Object.keys(S.runScores).length){alert("Complete pelo menos um módulo primeiro! 🙂");return}
+ const pct=Math.round(total/TOTMAX*100);const stars=Object.values(S.runStars).reduce((a,b)=>a+b,0);
+ if(total>prog.bestTotal){prog.bestTotal=total;save();showBest()}
+ const rank=pct>=90?["🛡️","Humano Blindado!"]:pct>=75?["🥇","Analista de Phishing Sênior"]:pct>=60?["🥈","Caçador de Golpes"]:pct>=40?["🥉","Detetive em Treinamento"]:["🌱","Recruta da Ciberdefesa"];
+ $("resEmoji").textContent=rank[0];$("resRank").textContent=`${S.name}, você é: ${rank[1]}`;
+ $("resBadge").textContent=`${total} / ${TOTMAX} pontos`;
+ $("resPts").textContent=total;$("resPct").textContent=pct+"%";$("resStars").textContent=stars+"/"+MODULES.length*3;
+ $("resDetail").innerHTML=MODULES.map(m=>{const sc=S.runScores[m.id];
+  return sc!==undefined?`<div>✔ ${m.icon} <b>${m.title}</b>: ${sc}/${MAXS[m.id-1]} pts · ${"⭐".repeat(S.runStars[m.id])}</div>`
+   :`<div>◻ ${m.icon} ${m.title}: não iniciado</div>`}).join("")
+  +`<div style="margin-top:8px">💡 <b>Lembrete:</b> desconfie de urgência, confira domínios, inspecione links e <b>nunca</b> compartilhe senhas ou códigos.</div>`;
+ show("scr-result");if(pct>=60)confetti(120);sWin()};
+ $("btnReplay").onclick=()=>{S.runScores={};S.runStars={};S.streak=0;updHud();renderLevels();show("scr-levels")};
+ $("btnMap").onclick=()=>{renderLevels();show("scr-levels")};
+document.addEventListener("keydown",e=>{
+ if(!$("scr-quiz").classList.contains("hidden")){
+  const nx=$("qNext");
+  if(nx&&!nx.classList.contains("hidden")&&e.key==="Enter")nx.click()}});
+updHud();
+</script>
+</body>
+</html>
