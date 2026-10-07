@@ -621,24 +621,35 @@ function bTLSCH(sni){
   const body=[3,3, ...rand, 0, 0,4, 0x13,1, 0x13,2, 1,0, (ext.length>>8)&255, ext.length&255, ...ext];
   const hs=[1, (body.length>>16)&255,(body.length>>8)&255, body.length&255, ...body];
   const rec=[0x16,3,1, (hs.length>>8)&255, hs.length&255, ...hs];
-  return { bytes:rec, tree:{ label:'TLSv1.2 Record Layer: Handshake Protocol: Client Hello', range:[0,rec.length], children:[
-    {label:'Content Type: Handshake (22)', range:[0,1]},
-    {label:'Version: TLS 1.0 (0x0301)', range:[1,3]},
-    {label:`Length: ${hs.length}`, range:[3,5]},
-    {label:'Handshake Protocol: Client Hello', range:[5,rec.length], children:[
-      {label:'Handshake Type: Client Hello (1)', range:[5,6]},
-      {label:`Length: ${body.length}`, range:[6,9]},
-      {label:'Version: TLS 1.2 (0x0303)', range:[9,11]},
-      {label:'Random: '+rand.slice(0,8).map(x=>x.toString(16).padStart(2,'0')).join('')+'…', range:[11,43]},
-      {label:'Session ID Length: 0', range:[43,44]},
-      {label:'Cipher Suites (2 suites)', range:[44,50]},
-      {label:'Compression Methods (1 method)', range:[50,52]},
-      {label:`Extensions (${ext.length} bytes)`, range:[52,rec.length], children:[
-        {label:`Extension: Server Name (len ${5+nb.length})`, range:[52,52+7+nb.length], children:[
-          {label:'Server Name Indication extension', range:[52,52+7+nb.length]},
-          {label:`Server Name: ${sni}`, range:[57,57+nb.length]} ]},
-        {label:'Extension: supported_versions (TLS 1.3, TLS 1.2)', range:[52+7+nb.length, 52+7+nb.length+9]},
-        {label:'Extension: application_layer_protocol_negotiation (h2, http/1.1)', range:[52+16+nb.length, rec.length]} ]} ]}}};
+  return {
+    bytes: rec,
+    tree: {
+      label: 'TLSv1.2 Record Layer: Handshake Protocol: Client Hello',
+      range: [0, rec.length],
+      children: [
+        {label:'Content Type: Handshake (22)', range:[0,1]},
+        {label:'Version: TLS 1.0 (0x0301)', range:[1,3]},
+        {label:`Length: ${hs.length}`, range:[3,5]},
+        {label:'Handshake Protocol: Client Hello', range:[5,rec.length], children:[
+          {label:'Handshake Type: Client Hello (1)', range:[5,6]},
+          {label:`Length: ${body.length}`, range:[6,9]},
+          {label:'Version: TLS 1.2 (0x0303)', range:[9,11]},
+          {label:'Random: '+rand.slice(0,8).map(x=>x.toString(16).padStart(2,'0')).join('')+'…', range:[11,43]},
+          {label:'Session ID Length: 0', range:[43,44]},
+          {label:'Cipher Suites (2 suites)', range:[44,50]},
+          {label:'Compression Methods (1 method)', range:[50,52]},
+          {label:`Extensions (${ext.length} bytes)`, range:[52,rec.length], children:[
+            {label:`Extension: Server Name (len ${5+nb.length})`, range:[52,52+7+nb.length], children:[
+              {label:'Server Name Indication extension', range:[52,52+7+nb.length]},
+              {label:`Server Name: ${sni}`, range:[57,57+nb.length]}
+            ]},
+            {label:'Extension: supported_versions (TLS 1.3, TLS 1.2)', range:[52+7+nb.length, 52+7+nb.length+9]},
+            {label:'Extension: application_layer_protocol_negotiation (h2, http/1.1)', range:[52+16+nb.length, rec.length]}
+          ]}
+        ]}
+      ]
+    }
+  };
 }
 function bTLSSH(){
   const rand=Array.from({length:32},()=>Math.floor(rng()*256));
@@ -654,7 +665,7 @@ function bTLSSH(){
       {label:'Version: TLS 1.2 (0x0303)', range:[9,11]},
       {label:'Random: '+rand.slice(0,8).map(x=>x.toString(16).padStart(2,'0')).join('')+'…', range:[11,43]},
       {label:'Cipher Suite: TLS_AES_128_GCM_SHA256 (0x1301)', range:[44,46]},
-      {label:'Extension: supported_versions (TLS 1.3)', range:[rec.length-7,rec.length]} ]}}}};
+      {label:'Extension: supported_versions (TLS 1.3)', range:[rec.length-7,rec.length]} ]} ]}};
 }
 function bTLSApp(n){
   const p=Array.from({length:n},()=>Math.floor(rng()*256));
@@ -663,7 +674,7 @@ function bTLSApp(n){
     {label:'Content Type: Application Data (23)', range:[0,1]},
     {label:'Version: TLS 1.2 (0x0303)', range:[1,3]},
     {label:`Length: ${n}`, range:[3,5]},
-    {label:`Encrypted Application Data: ${n} bytes`, range:[5,rec.length]} ]}}};
+    {label:`Encrypted Application Data: ${n} bytes`, range:[5,rec.length]} ]}};
 }
 
 /* ---------- wrappers de pacote ---------- */
