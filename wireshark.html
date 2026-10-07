@@ -1,0 +1,1682 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PacketLab — Simulador de Wireshark com trilha guiada</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230d1115'/%3E%3Cpath d='M4 16h6l3-8 5 16 3-8h7' fill='none' stroke='%23f0a83c' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+<style>
+:root{
+  --bg:#0d1115; --panel:#131920; --panel2:#0f141a; --panel3:#171e26;
+  --line:#232d37; --line2:#2c3843;
+  --ink:#dbe3ea; --dim:#8b98a3; --dim2:#5c6873;
+  --acc:#f0a83c; --acc-soft:rgba(240,168,60,.12); --acc-ink:#181005;
+  --ok:#53c98b; --err:#e5584f; --err-soft:rgba(229,88,79,.14);
+  --teal:#63b3c4; --green:#7cc474; --pink:#cd8aa4; --terra:#e0764f;
+  --lilac:#b3a1d9; --olive:#a3b565;
+  --mono:'IBM Plex Mono',ui-monospace,monospace;
+  --sans:'IBM Plex Sans',sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:14px;
+  display:grid;grid-template-rows:auto auto 1fr auto;height:100vh;overflow:hidden;
+}
+.hidden{display:none!important}
+button{font-family:inherit;cursor:pointer}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-thumb{background:#2a343e;border-radius:6px;border:2px solid var(--bg)}
+::-webkit-scrollbar-track{background:transparent}
+:focus-visible{outline:2px solid var(--acc);outline-offset:1px}
+
+/* ---------- topo ---------- */
+#topbar{display:flex;align-items:center;justify-content:space-between;gap:16px;
+  padding:8px 14px;border-bottom:1px solid var(--line);background:var(--panel2)}
+.brand{display:flex;align-items:center;gap:10px;min-width:0}
+.logo{width:34px;height:34px;border:1px solid var(--line2);border-radius:8px;background:var(--panel);
+  display:grid;place-items:center;flex:none}
+.brand b{font-size:15px;letter-spacing:.14em;font-weight:700;display:block;line-height:1.1}
+.brand b span{color:var(--acc)}
+.brand small{color:var(--dim2);font-size:10.5px;letter-spacing:.05em}
+.live-area{display:flex;align-items:center;gap:14px}
+#spark{border:1px solid var(--line);border-radius:6px;background:#0b0f13}
+.cap-clock{font-family:var(--mono);font-size:15px;color:var(--acc);min-width:74px;text-align:center}
+.tb-group{display:flex;gap:6px}
+
+.btn{display:inline-flex;align-items:center;gap:6px;padding:6px 11px;font-size:12.5px;font-weight:500;
+  color:var(--ink);background:var(--panel3);border:1px solid var(--line2);border-radius:7px;transition:.15s}
+.btn:hover:not(:disabled){background:#1f2831;border-color:#3a4753}
+.btn:disabled{opacity:.38;cursor:not-allowed}
+.btn svg{width:14px;height:14px}
+.btn.primary{background:var(--acc);border-color:var(--acc);color:var(--acc-ink);font-weight:600}
+.btn.primary:hover:not(:disabled){background:#f7b654}
+.btn.stop{background:var(--err);border-color:var(--err);color:#fff}
+.btn.ghost{background:transparent;border-color:transparent;color:var(--dim)}
+.btn.ghost:hover{color:var(--ink);background:var(--panel3)}
+
+/* ---------- barra de filtros ---------- */
+#filterbar{display:flex;align-items:center;gap:10px;padding:8px 14px;border-bottom:1px solid var(--line);
+  background:var(--panel);position:relative;flex-wrap:wrap}
+.ficon{color:var(--dim)}
+.ficon svg{width:15px;height:15px;display:block}
+.fwrap{position:relative;flex:1 1 320px;min-width:240px}
+#filterInput{width:100%;padding:8px 34px 8px 12px;font-family:var(--mono);font-size:13px;color:var(--ink);
+  background:#0b0f13;border:1px solid var(--line2);border-radius:7px;transition:border-color .15s, background .15s}
+#filterInput::placeholder{color:var(--dim2)}
+#filterInput.ok{border-color:rgba(83,201,139,.55);background:rgba(83,201,139,.06)}
+#filterInput.bad{border-color:rgba(229,88,79,.6);background:var(--err-soft)}
+.fx{position:absolute;right:5px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--dim2);
+  padding:4px;border-radius:5px;display:none}
+.fx:hover{color:var(--ink)}
+.fx svg{width:13px;height:13px;display:block}
+.ferr{position:absolute;left:34px;top:calc(100% + 3px);z-index:40;font-family:var(--mono);font-size:11.5px;
+  color:#f2938c;background:#221416;border:1px solid rgba(229,88,79,.4);padding:5px 10px;border-radius:6px;max-width:560px}
+.ac-box{position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:50;background:var(--panel3);
+  border:1px solid var(--line2);border-radius:8px;box-shadow:0 12px 30px rgba(0,0,0,.5);overflow:hidden;max-height:262px;overflow-y:auto}
+.ac-it{display:flex;justify-content:space-between;gap:14px;padding:7px 11px;font-family:var(--mono);font-size:12.5px;cursor:pointer}
+.ac-it .d{color:var(--dim2);font-family:var(--sans);font-size:11.5px;text-align:right}
+.ac-it.act,.ac-it:hover{background:var(--acc-soft);color:var(--acc)}
+.fb-group{display:flex;gap:6px;align-items:center;position:relative}
+.dropdown{position:relative}
+.menu{position:absolute;right:0;top:calc(100% + 5px);z-index:60;width:330px;background:var(--panel3);
+  border:1px solid var(--line2);border-radius:9px;box-shadow:0 14px 34px rgba(0,0,0,.55);padding:5px}
+.menu-it{display:flex;justify-content:space-between;align-items:center;gap:12px;width:100%;text-align:left;
+  background:none;border:none;border-radius:6px;padding:7px 10px;color:var(--ink)}
+.menu-it:hover{background:var(--acc-soft)}
+.menu-it code{font-family:var(--mono);font-size:12.5px;color:var(--acc)}
+.menu-it small{color:var(--dim2);font-size:11px}
+
+/* ---------- área de trabalho ---------- */
+#workspace{display:grid;grid-template-columns:minmax(0,1fr) 352px;min-height:0;overflow:hidden}
+body.guide-off #workspace{grid-template-columns:minmax(0,1fr)}
+body.guide-off #guide{display:none}
+#tool{display:flex;flex-direction:column;min-width:0;min-height:0;border-right:1px solid var(--line)}
+.panel{display:flex;flex-direction:column;min-height:90px;overflow:hidden}
+#pList{flex:1 1 44%}
+#pDetail{flex:1 1 30%}
+#pBytes{flex:1 1 26%}
+.phead{display:flex;align-items:center;justify-content:space-between;padding:5px 12px;background:var(--panel2);
+  border-bottom:1px solid var(--line);border-top:1px solid var(--line);flex:none}
+.phead:first-child{border-top:none}
+.ptitle{font-size:10.5px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:var(--dim)}
+.pmeta{font-family:var(--mono);font-size:11px;color:var(--dim2)}
+.pbody{position:relative;overflow:auto;flex:1;min-height:0}
+.drag{height:6px;background:var(--panel2);border-bottom:1px solid var(--line);cursor:row-resize;flex:none}
+.drag:hover{background:var(--acc-soft)}
+
+/* lista de pacotes */
+.tscroll{min-width:640px}
+table#pktTable{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:12.3px;table-layout:fixed}
+#pktTable th{position:sticky;top:0;z-index:2;background:var(--panel2);color:var(--dim2);font-weight:500;
+  text-align:left;padding:5px 8px;border-bottom:1px solid var(--line);font-size:11px;letter-spacing:.04em}
+#pktTable td{padding:3.5px 8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--dim)}
+#pktTable td.info{color:var(--ink)}
+th.c-no,td.c-no{width:52px;text-align:right}
+th.c-t,td.c-t{width:100px}
+th.c-len,td.c-len{width:56px;text-align:right}
+th.c-proto,td.c-proto{width:76px}
+tr.pkt{cursor:pointer}
+tr.pkt:hover td{background:rgba(255,255,255,.03)}
+tr.pkt.sel td{background:var(--acc-soft)}
+tr.pkt.sel td:first-child{box-shadow:inset 3px 0 0 var(--acc)}
+tr.pkt.dns td{background:rgba(124,196,116,.06)} tr.pkt.dns .proto{color:var(--green)}
+tr.pkt.http td{background:rgba(240,168,60,.09)} tr.pkt.http .proto{color:var(--acc)}
+tr.pkt.tls td{background:rgba(205,138,164,.07)} tr.pkt.tls .proto{color:var(--pink)}
+tr.pkt.icmp td{background:rgba(224,118,79,.07)} tr.pkt.icmp .proto{color:var(--terra)}
+tr.pkt.arp td{background:rgba(179,161,217,.07)} tr.pkt.arp .proto{color:var(--lilac)}
+tr.pkt.mdns td,tr.pkt.ssdp td{background:rgba(139,152,163,.05)} tr.pkt.mdns .proto,tr.pkt.ssdp .proto{color:var(--dim)}
+tr.pkt.tcp .proto{color:var(--teal)}
+tr.pkt.err td{background:var(--err-soft)!important}
+tr.pkt.err .info{color:#f2938c}
+tr.pkt.new td{animation:rowin .5s ease}
+@keyframes rowin{from{background:rgba(240,168,60,.28)}to{background:transparent}}
+.proto{font-weight:600}
+.empty{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:8px;color:var(--dim2);text-align:center;padding:20px}
+.empty svg{width:30px;height:30px;color:var(--dim2)}
+.empty p{font-size:13px;color:var(--dim)} .empty .sub{font-size:12px;color:var(--dim2)}
+.empty b{color:var(--acc)}
+
+/* árvore de detalhes */
+.tree{font-family:var(--mono);font-size:12.3px;padding:4px 0 12px}
+.tn .tr{display:flex;align-items:baseline;padding:2.5px 10px 2.5px calc(10px + var(--d,0)*16px);gap:5px}
+.tn .tr:hover{background:rgba(255,255,255,.03)}
+.tn .tr.sel{background:var(--acc-soft)}
+.chev{flex:none;width:14px;height:14px;color:var(--dim2);display:inline-flex;align-items:center;cursor:pointer;
+  transform:rotate(0deg);transition:transform .12s}
+.chev.no-kids{visibility:hidden}
+.chev.open{transform:rotate(90deg)}
+.chev svg{width:12px;height:12px}
+.lbl{cursor:default;word-break:break-all;white-space:pre-wrap}
+.lbl.rng{cursor:pointer}
+.lbl.rng:hover{color:var(--acc)}
+.kids{display:none}
+.kids.open{display:block}
+
+/* hexdump */
+.hex{font-family:var(--mono);font-size:12.2px;padding:8px 12px;line-height:1.65}
+.hl{display:flex;gap:14px;white-space:pre}
+.off{color:var(--dim2)}
+.hb{padding:0 1px;border-radius:2px}
+.hb.hl-on{background:var(--acc);color:var(--acc-ink)}
+.hb.sel{background:rgba(240,168,60,.3);color:var(--ink)}
+
+/* ---------- guia ---------- */
+#guide{overflow-y:auto;background:var(--panel);min-height:0}
+.ghead{padding:14px 16px 12px;border-bottom:1px solid var(--line)}
+.gtitle{display:flex;align-items:center;gap:8px;font-weight:700;font-size:13.5px;letter-spacing:.02em}
+.gtitle svg{width:16px;height:16px;color:var(--acc)}
+.gprog{display:flex;align-items:center;gap:10px;margin-top:10px}
+.gbar{flex:1;height:5px;background:#0b0f13;border-radius:3px;overflow:hidden}
+#gfill{height:100%;width:0;background:var(--acc);border-radius:3px;transition:width .4s ease}
+#gcount{font-family:var(--mono);font-size:12px;color:var(--dim)}
+.gnote{margin-top:10px;font-size:12px;color:var(--dim);line-height:1.55}
+.gnote b{color:var(--acc)}
+#missionList{padding:8px}
+.ms{border:1px solid var(--line);border-radius:9px;margin-bottom:8px;background:var(--panel2);overflow:hidden}
+.ms.openm{border-color:var(--line2)}
+.ms-head{display:flex;align-items:center;gap:10px;width:100%;background:none;border:none;color:var(--ink);
+  padding:10px 12px;text-align:left}
+.ms-head:hover{background:rgba(255,255,255,.025)}
+.ms-num{flex:none;width:22px;height:22px;border:1px solid var(--line2);border-radius:6px;display:grid;place-items:center;
+  font-family:var(--mono);font-size:11.5px;color:var(--dim)}
+.ms.done .ms-num{border-color:var(--ok);color:var(--ok);background:rgba(83,201,139,.1)}
+.ms-tt{flex:1;font-size:13px;font-weight:600}
+.ms-chev{color:var(--dim2);transition:transform .15s;display:inline-flex}
+.ms.openm .ms-chev{transform:rotate(180deg)}
+.ms-chev svg{width:14px;height:14px}
+.ms-st{color:var(--dim2);display:inline-flex}
+.ms-st svg{width:15px;height:15px}
+.ms.done .ms-st{color:var(--ok)}
+.ms-body{display:none;padding:2px 14px 14px;border-top:1px solid var(--line)}
+.ms.openm .ms-body{display:block}
+.ms-ctx{font-size:12.5px;color:var(--dim);line-height:1.6;padding:10px 0 4px}
+.ms-sec{margin-top:12px}
+.ms-lab{display:inline-flex;align-items:center;gap:6px;font-size:10.5px;font-weight:700;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--acc)}
+.ms-lab svg{width:13px;height:13px}
+.ms-sec.sim .ms-lab{color:var(--teal)}
+.ms-sec.quiz .ms-lab{color:var(--pink)}
+.ms-sec ol{margin:8px 0 0 18px;display:flex;flex-direction:column;gap:7px}
+.ms-sec li{font-size:12.5px;color:var(--ink);line-height:1.55}
+.ms-sec li code, .ms-ctx code{font-family:var(--mono);font-size:11.8px;color:var(--acc);background:rgba(240,168,60,.08);padding:1px 4px;border-radius:4px}
+.cmd{display:flex;align-items:center;gap:6px;margin-top:5px;background:#0a0e12;border:1px solid var(--line);
+  border-radius:6px;padding:6px 6px 6px 9px}
+.cmd code{flex:1;background:none;padding:0;color:#cfe3d8;font-size:12px;word-break:break-all}
+.cmd button{flex:none;background:var(--panel3);border:1px solid var(--line2);border-radius:5px;color:var(--dim);
+  padding:4px;display:grid;place-items:center}
+.cmd button:hover{color:var(--acc);border-color:var(--acc)}
+.cmd button svg{width:12px;height:12px}
+.ms-sec p{font-size:12.5px;color:var(--ink);line-height:1.55;margin-top:7px}
+.ms-chk{display:flex;align-items:center;gap:7px;margin-top:8px;font-size:12px;color:var(--dim2);
+  padding:7px 10px;border:1px dashed var(--line2);border-radius:7px}
+.ms-chk svg{width:14px;height:14px}
+.ms-chk.okchk{color:var(--ok);border-style:solid;border-color:rgba(83,201,139,.45);background:rgba(83,201,139,.07)}
+.qrow{display:flex;gap:6px;margin-top:9px}
+.qrow input{flex:1;padding:7px 10px;font-family:var(--mono);font-size:12.5px;color:var(--ink);
+  background:#0b0f13;border:1px solid var(--line2);border-radius:7px}
+.qrow .btn{flex:none}
+.qfb{margin-top:8px;font-size:12.5px;line-height:1.5;border-radius:7px;padding:8px 10px;display:none}
+.qfb.good{display:block;color:var(--ok);background:rgba(83,201,139,.08);border:1px solid rgba(83,201,139,.35)}
+.qfb.badfb{display:block;color:#f2938c;background:var(--err-soft);border:1px solid rgba(229,88,79,.35)}
+.gfoot{padding:6px 12px 16px}
+.gdone{margin:4px 8px 10px;padding:12px;border:1px solid rgba(83,201,139,.4);border-radius:9px;
+  background:rgba(83,201,139,.06);font-size:12.5px;color:var(--ink);line-height:1.55}
+.gdone svg{width:15px;height:15px;color:var(--ok);vertical-align:-2px;margin-right:6px}
+
+/* ---------- status ---------- */
+#statusbar{display:flex;align-items:center;gap:16px;padding:5px 14px;border-top:1px solid var(--line);
+  background:var(--panel2);font-family:var(--mono);font-size:11.5px;color:var(--dim);overflow:hidden;white-space:nowrap}
+.chip{display:inline-flex;align-items:center;gap:5px}
+.chip svg{width:12px;height:12px}
+#statusbar .spacer{flex:1}
+#stLive{color:var(--acc)}
+#stLive .dot{width:7px;height:7px;border-radius:50%;background:var(--err);animation:blink 1s infinite}
+@keyframes blink{50%{opacity:.25}}
+
+/* ---------- modal / popovers / toasts ---------- */
+.modal{position:fixed;inset:0;z-index:100;background:rgba(5,8,11,.62);display:grid;place-items:center;padding:20px}
+.dialog{width:min(820px,100%);max-height:82vh;display:flex;flex-direction:column;background:var(--panel);
+  border:1px solid var(--line2);border-radius:12px;box-shadow:0 24px 60px rgba(0,0,0,.6);overflow:hidden}
+.dhead{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px;
+  border-bottom:1px solid var(--line);background:var(--panel2)}
+.dhead h3{font-size:13.5px;font-weight:600}
+.dhead h3 small{display:block;font-weight:400;color:var(--dim2);font-family:var(--mono);font-size:11.5px;margin-top:3px}
+.dbody{overflow:auto;padding:14px 16px;font-family:var(--mono);font-size:12.3px}
+.seg{margin-bottom:14px}
+.segdir{display:inline-block;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;padding:2px 8px;
+  border-radius:4px;margin-bottom:5px}
+.seg.c2s .segdir{background:rgba(240,168,60,.14);color:var(--acc)}
+.seg.s2c .segdir{background:rgba(99,179,196,.14);color:var(--teal)}
+.seg.meta .segdir{background:rgba(139,152,163,.12);color:var(--dim)}
+.seg pre{white-space:pre-wrap;word-break:break-word;color:var(--ink);line-height:1.5}
+.seg.meta pre{color:var(--dim2)}
+.pop{position:fixed;right:14px;bottom:42px;z-index:90;width:340px;background:var(--panel3);
+  border:1px solid var(--line2);border-radius:10px;box-shadow:0 16px 40px rgba(0,0,0,.55);padding:12px 14px}
+.pop h4{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);margin-bottom:10px}
+.hrow{display:grid;grid-template-columns:70px 44px 1fr;align-items:center;gap:8px;font-family:var(--mono);
+  font-size:12px;padding:4px 0}
+.hrow .n{text-align:right;color:var(--dim)}
+.hbar{height:6px;background:#0b0f13;border-radius:3px;overflow:hidden}
+.hbar div{height:100%;border-radius:3px}
+#toasts{position:fixed;right:16px;bottom:44px;z-index:200;display:flex;flex-direction:column;gap:8px;align-items:flex-end}
+.toast{display:flex;align-items:center;gap:9px;background:var(--panel3);border:1px solid var(--line2);
+  border-left:3px solid var(--acc);border-radius:8px;padding:9px 14px;font-size:12.5px;
+  box-shadow:0 10px 26px rgba(0,0,0,.5);animation:tin .25s ease;max-width:360px}
+.toast.ok{border-left-color:var(--ok)} .toast.bad{border-left-color:var(--err)}
+.toast svg{width:14px;height:14px;flex:none;color:var(--acc)}
+.toast.ok svg{color:var(--ok)} .toast.bad svg{color:var(--err)}
+@keyframes tin{from{opacity:0;transform:translateY(8px)}}
+
+@media (max-width:1100px){
+  body{overflow:auto;height:auto;grid-template-rows:auto auto 1fr auto}
+  #workspace{grid-template-columns:1fr}
+  #guide{position:fixed;top:0;right:0;bottom:0;width:min(380px,92vw);z-index:120;border-left:1px solid var(--line2);
+    box-shadow:-18px 0 40px rgba(0,0,0,.5);transform:translateX(105%);transition:transform .25s ease}
+  body.guide-on #guide{transform:none}
+  body.guide-on::after{content:'';position:fixed;inset:0;z-index:110;background:rgba(0,0,0,.45)}
+  #tool{border-right:none;height:78vh}
+}
+</style>
+</head>
+<body>
+
+<header id="topbar">
+  <div class="brand">
+    <span class="logo">
+      <svg viewBox="0 0 32 32" width="22" height="22"><path d="M3 16h6l3.5-9 5.5 18 3.5-9h7.5" fill="none" stroke="#f0a83c" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </span>
+    <div class="brand-txt">
+      <b>PACKET<span>LAB</span></b>
+      <small>simulador de wireshark · trilha guiada</small>
+    </div>
+  </div>
+  <div class="live-area">
+    <canvas id="spark" width="150" height="30" title="Pacotes por segundo"></canvas>
+    <span class="cap-clock" id="capClock">00:00:00</span>
+    <div class="tb-group">
+      <button id="btnLoad" class="btn" title="Recarregar a captura de referência (cenário completo)"><i data-lucide="database"></i>Referência</button>
+      <button id="btnStart" class="btn primary" title="Iniciar captura ao vivo simulada"><i data-lucide="play"></i>Iniciar</button>
+      <button id="btnStop" class="btn" title="Parar a captura" disabled><i data-lucide="square"></i>Parar</button>
+      <button id="btnClear" class="btn" title="Limpar a lista de pacotes"><i data-lucide="eraser"></i>Limpar</button>
+    </div>
+  </div>
+</header>
+
+<div id="filterbar">
+  <span class="ficon"><i data-lucide="filter"></i></span>
+  <div class="fwrap">
+    <input id="filterInput" spellcheck="false" autocomplete="off"
+      placeholder="Filtro de display — ex.: dns || tcp.port == 443 — pressione Enter para aplicar">
+    <button id="fClear" class="fx" title="Limpar filtro"><i data-lucide="x"></i></button>
+    <div id="acBox" class="ac-box hidden"></div>
+  </div>
+  <div class="fb-group">
+    <button id="btnFollow" class="btn" disabled title="Reconstruir a conversa TCP do pacote selecionado"><i data-lucide="waypoints"></i>Seguir fluxo TCP</button>
+    <button id="btnHier" class="btn" title="Hierarquia de protocolos dos pacotes exibidos"><i data-lucide="chart-pie"></i>Hierarquia</button>
+    <div class="dropdown">
+      <button id="btnSugg" class="btn" title="Filtros de exemplo"><i data-lucide="wand-2"></i>Filtros úteis<i data-lucide="chevron-down"></i></button>
+      <div id="suggMenu" class="menu hidden"></div>
+    </div>
+    <button id="btnGuide" class="btn" title="Mostrar ou ocultar a trilha de laboratório"><i data-lucide="graduation-cap"></i>Guia</button>
+  </div>
+  <div id="filterErr" class="ferr hidden"></div>
+</div>
+
+<main id="workspace">
+  <section id="tool">
+    <div class="panel" id="pList">
+      <div class="phead"><span class="ptitle">Lista de pacotes</span><span class="pmeta" id="listMeta"></span></div>
+      <div class="pbody" id="listBody">
+        <div class="tscroll">
+          <table id="pktTable">
+            <thead><tr>
+              <th class="c-no">No.</th><th class="c-t">Time</th><th>Source</th><th>Destination</th>
+              <th class="c-proto">Protocol</th><th class="c-len">Len</th><th>Info</th>
+            </tr></thead>
+            <tbody id="pktBody"></tbody>
+          </table>
+        </div>
+        <div id="emptyList" class="empty hidden">
+          <i data-lucide="radio"></i>
+          <p>Nenhuma captura carregada.</p>
+          <p class="sub">Use <b>Referência</b> para carregar o cenário de laboratório ou <b>Iniciar</b> para capturar tráfego ao vivo.</p>
+        </div>
+      </div>
+    </div>
+    <div class="drag" id="dragA" title="Arraste para redimensionar"></div>
+    <div class="panel" id="pDetail">
+      <div class="phead"><span class="ptitle">Detalhes do pacote</span><span class="pmeta" id="detMeta"></span></div>
+      <div class="pbody">
+        <div id="tree" class="tree"></div>
+        <div id="emptyDetail" class="empty"><i data-lucide="list-tree"></i><p>Selecione um pacote na lista para dissecar suas camadas.</p></div>
+      </div>
+    </div>
+    <div class="drag" id="dragB" title="Arraste para redimensionar"></div>
+    <div class="panel" id="pBytes">
+      <div class="phead"><span class="ptitle">Bytes do pacote</span><span class="pmeta" id="bytesMeta"></span></div>
+      <div class="pbody">
+        <div id="hexdump" class="hex"></div>
+        <div id="emptyBytes" class="empty"><i data-lucide="binary"></i><p>Os bytes brutos aparecem aqui.</p><p class="sub">Clique num campo dos <b>Detalhes</b> para destacá-lo no dump hexadecimal.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <aside id="guide">
+    <div class="ghead">
+      <div class="gtitle"><i data-lucide="graduation-cap"></i>Trilha de laboratório</div>
+      <div class="gprog"><div class="gbar"><div id="gfill"></div></div><span id="gcount">0/6</span></div>
+      <p class="gnote">Cada missão orienta a prática <b>no Wireshark real, instalado na sua máquina</b> — com comandos para copiar — e termina com um exercício verificado aqui no simulador.</p>
+    </div>
+    <div id="missionList"></div>
+    <div class="gfoot"><button id="btnReset" class="btn ghost"><i data-lucide="rotate-ccw"></i>Reiniciar progresso</button></div>
+  </aside>
+</main>
+
+<footer id="statusbar">
+  <span class="chip"><i data-lucide="activity"></i>Perfil: Laboratório guiado</span>
+  <span class="chip"><i data-lucide="wifi"></i>Wi-Fi (simulada)</span>
+  <span class="chip hidden" id="stLive"><span class="dot"></span>Capturando…</span>
+  <span class="spacer"></span>
+  <span id="stCounts">Pacotes: 0</span>
+  <span id="stShown">Exibidos: 0</span>
+  <span id="stBytes">0 B capturados</span>
+</footer>
+
+<div id="streamModal" class="modal hidden">
+  <div class="dialog">
+    <div class="dhead">
+      <h3 id="stTitle"></h3>
+      <button class="btn ghost" id="stClose" title="Fechar (Esc)"><i data-lucide="x"></i></button>
+    </div>
+    <div class="dbody" id="stBody"></div>
+  </div>
+</div>
+
+<div id="hierPop" class="pop hidden"><h4>Hierarquia de protocolos (exibidos)</h4><div id="hierRows"></div></div>
+<div id="toasts"></div>
+
+<script>
+'use strict';
+/* =====================================================================
+   PacketLab — simulador de análise de tráfego com trilha guiada
+   ===================================================================== */
+
+/* ---------- utilidades ---------- */
+const $ = s => document.querySelector(s);
+const CHEV = '<svg viewBox="0 0 24 24" width="12" height="12"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const mulberry32 = a => () => { a|=0; a=a+0x6D2B79F5|0; let t=Math.imul(a^a>>>15,1|a);
+  t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; };
+const rng = mulberry32(0xC0FFEE);
+const rint = (a,b)=>a+Math.floor(rng()*(b-a+1));
+function toast(msg, kind){ const d=document.createElement('div'); d.className='toast '+(kind||'');
+  d.innerHTML='<i data-lucide="'+(kind==='ok'?'circle-check':kind==='bad'?'alert-circle':'info')+'"></i><span></span>';
+  d.querySelector('span').textContent=msg; $('#toasts').appendChild(d); lucide.createIcons();
+  setTimeout(()=>{ d.style.opacity='0'; d.style.transition='opacity .3s'; setTimeout(()=>d.remove(),320); }, 3400); }
+function norm(s){ return String(s).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim()
+  .replace(/[^a-z0-9.\-\/ ]/g,' ').replace(/\s+/g,' ').trim(); }
+
+/* ---------- montagem de bytes ---------- */
+class W{ constructor(){this.b=[];} u8(v){this.b.push(v&255);} u16(v){this.b.push((v>>8)&255,v&255);}
+  u32(v){this.b.push((v>>>24)&255,(v>>16)&255,(v>>8)&255,v&255);} raw(a){for(const x of a)this.b.push(x&255);}
+  bytes(){return this.b;} }
+const concat = (a,b)=>a.concat(b);
+const onesum = a => { let s=0; for(let i=0;i<a.length-1;i+=2) s+=(a[i]<<8)|a[i+1];
+  if(a.length%2) s+=a[a.length-1]<<8; while(s>>16) s=(s&0xffff)+(s>>16); return (~s)&0xffff; };
+const ipBytes = s => s.split('.').map(Number);
+const macFmt = b => Array.from(b).map(x=>x.toString(16).padStart(2,'0')).join(':');
+const te = new TextEncoder();
+const hex8 = v => '0x'+v.toString(16).padStart(4,'0');
+function flagStr(f){ const n=[]; if(f&0x02)n.push('SYN'); if(f&0x10)n.push('ACK'); if(f&0x01)n.push('FIN');
+  if(f&0x04)n.push('RST'); if(f&0x08)n.push('PSH'); return n.join(', ')||'?'; }
+
+/* ---------- camadas ---------- */
+function bEth(dm, sm, etype, inner){
+  const w=new W(); w.raw(ipBytesOrMac(dm)); w.raw(ipBytesOrMac(sm)); w.u16(etype); w.raw(inner.bytes);
+  const et = etype===0x0800?'IPv4':etype===0x0806?'ARP':'0x'+etype.toString(16);
+  return { bytes:w.bytes(), tree:{ label:`Ethernet II, Src: ${sm}, Dst: ${dm}`, range:[0,w.bytes().length], children:[
+    {label:`Destination: ${dm}`, range:[0,6]},
+    {label:`Source: ${sm}`, range:[6,12]},
+    {label:`Type: ${et} (${hex8(etype)})`, range:[12,14]},
+    inner.tree ]}};
+}
+function ipBytesOrMac(s){ return s.includes(':') ? s.split(':').map(x=>parseInt(x,16)) : ipBytes(s); }
+
+function bIP(sip, dip, proto, inner, opt={}){
+  const total=20+inner.bytes.length;
+  const w=new W(); w.u8(0x45); w.u8(0); w.u16(total); w.u16(opt.id||0x4d21); w.u16(0x4000);
+  w.u8(opt.ttl!==undefined?opt.ttl:64); w.u8(proto); w.u16(0);
+  w.raw(ipBytes(sip)); w.raw(ipBytes(dip));
+  const c=onesum(w.bytes()); w.b[10]=c>>8; w.b[11]=c&255;
+  w.raw(inner.bytes);
+  const pn = proto===6?'TCP':proto===17?'UDP':proto===1?'ICMP':String(proto);
+  return { bytes:w.bytes(), tree:{ label:`Internet Protocol Version 4, Src: ${sip}, Dst: ${dip}`, range:[0,w.bytes().length], children:[
+    {label:'Version: 4', range:[0,1]},
+    {label:'Header Length: 20 bytes (5)', range:[0,1]},
+    {label:`Total Length: ${total}`, range:[2,4]},
+    {label:`Identification: ${hex8(opt.id||0x4d21)}`, range:[4,6]},
+    {label:'Flags: 0x4000, Don\'t fragment', range:[6,8]},
+    {label:`Time to Live: ${opt.ttl!==undefined?opt.ttl:64}`, range:[8,9]},
+    {label:`Protocol: ${pn} (${proto})`, range:[9,10]},
+    {label:`Header Checksum: ${hex8(c)} [correct]`, range:[10,12]},
+    {label:`Source Address: ${sip}`, range:[12,16]},
+    {label:`Destination Address: ${dip}`, range:[16,20]},
+    inner.tree ]}};
+}
+
+function bTCP(o){
+  const opts=o.opts||[], pl=o.payload?o.payload.bytes:[], hl=20+opts.length;
+  const w=new W(); w.u16(o.sport); w.u16(o.dport); w.u32(o.seq); w.u32(o.ack);
+  w.u8((hl/4)<<4); w.u8(o.flags); w.u16(o.win); w.u16(0); w.u16(0);
+  w.raw(opts); w.raw(pl);
+  const seg=w.bytes();
+  const pw=new W(); pw.raw(ipBytes(o.sip)); pw.raw(ipBytes(o.dip)); pw.u8(0); pw.u8(6); pw.u16(seg.length);
+  const c=onesum(pw.bytes().concat(seg)); seg[16]=c>>8; seg[17]=c&255;
+  const kids=[
+    {label:`Source Port: ${o.sport}`, range:[0,2]},
+    {label:`Destination Port: ${o.dport}`, range:[2,4]},
+    {label:`Sequence Number: ${o.seq}`, range:[4,8]},
+    {label:`Acknowledgment Number: ${o.ack}`, range:[8,12]},
+    {label:`Flags: ${hex8(o.flags)} (${flagStr(o.flags)})`, range:[12,14]},
+    {label:`Window: ${o.win}`, range:[14,16]},
+    {label:`Checksum: ${hex8(c)} [correct]`, range:[16,18]},
+    {label:'Urgent Pointer: 0', range:[18,20]}
+  ];
+  if(opts.length) kids.push({label:`Options: (${opts.length} bytes)`, range:[20,20+opts.length]});
+  if(pl.length) kids.push({label:`TCP payload: ${pl.length} bytes`, range:[hl,seg.length]});
+  if(o.payload&&o.payload.tree) kids.push(o.payload.tree);
+  return { bytes:seg, tree:{ label:`Transmission Control Protocol, Src Port: ${o.sport}, Dst Port: ${o.dport}, Seq: ${o.seq}, Ack: ${o.ack}, Len: ${pl.length}`, range:[0,seg.length], children:kids }};
+}
+
+function bUDP(sip, dip, sp, dp, inner){
+  const len=8+inner.bytes.length;
+  const w=new W(); w.u16(sp); w.u16(dp); w.u16(len); w.u16(0); w.raw(inner.bytes);
+  const pw=new W(); pw.raw(ipBytes(sip)); pw.raw(ipBytes(dip)); pw.u8(0); pw.u8(17); pw.u16(len);
+  const c=onesum(pw.bytes().concat(w.bytes())); w.b[6]=c>>8; w.b[7]=c&255;
+  return { bytes:w.bytes(), tree:{ label:`User Datagram Protocol, Src Port: ${sp}, Dst Port: ${dp}`, range:[0,8], children:[
+    {label:`Source Port: ${sp}`, range:[0,2]},
+    {label:`Destination Port: ${dp}`, range:[2,4]},
+    {label:`Length: ${len}`, range:[4,6]},
+    {label:`Checksum: ${hex8(c)} [correct]`, range:[6,8]},
+    inner.tree ]}};
+}
+
+function bICMP(type, code, id, seq, payload){
+  const w=new W(); w.u8(type); w.u8(code); w.u16(0); w.u16(id); w.u16(seq); w.raw(payload);
+  const c=onesum(w.bytes()); w.b[2]=c>>8; w.b[3]=c&255;
+  const tn = type===8?'Echo (ping) request':type===0?'Echo (ping) reply':'type '+type;
+  return { bytes:w.bytes(), tree:{ label:`Internet Control Message Protocol — ${tn}`, range:[0,w.bytes().length], children:[
+    {label:`Type: ${type} (${type===8?'Echo (ping) request':'Echo (ping) reply'})`, range:[0,1]},
+    {label:`Code: ${code}`, range:[1,2]},
+    {label:`Checksum: ${hex8(c)} [correct]`, range:[2,4]},
+    {label:`Identifier: ${hex8(id)}`, range:[4,6]},
+    {label:`Sequence: ${seq}`, range:[6,8]},
+    {label:`Data (${payload.length} bytes)`, range:[8,w.bytes().length]} ]}};
+}
+
+function bARP(oper, sha, spa, tha, tpa){
+  const w=new W(); w.u16(1); w.u16(0x0800); w.u8(6); w.u8(4); w.u16(oper);
+  w.raw(ipBytesOrMac(sha)); w.raw(ipBytes(spa)); w.raw(ipBytesOrMac(tha)); w.raw(ipBytes(tpa));
+  return { bytes:w.bytes(), tree:{ label:`Address Resolution Protocol (${oper===1?'request':'reply'})`, range:[0,28], children:[
+    {label:'Hardware type: Ethernet (1)', range:[0,2]},
+    {label:'Protocol type: IPv4 (0x0800)', range:[2,4]},
+    {label:'Hardware size: 6', range:[4,5]},
+    {label:'Protocol size: 4', range:[5,6]},
+    {label:`Opcode: ${oper===1?'request (1)':'reply (2)'}`, range:[6,8]},
+    {label:`Sender MAC address: ${sha}`, range:[8,14]},
+    {label:`Sender IP address: ${spa}`, range:[14,18]},
+    {label:`Target MAC address: ${tha}`, range:[18,24]},
+    {label:`Target IP address: ${tpa}`, range:[24,28]} ]}};
+}
+
+/* ---------- DNS ---------- */
+const dnsTypeName = t => ({1:'A',5:'CNAME',12:'PTR'})[t]||t;
+function encName(n){ const o=[]; n.split('.').forEach(l=>{ o.push(l.length); for(const c of l)o.push(c.charCodeAt(0)); }); o.push(0); return o; }
+function bDNS(o){
+  const w=new W(); w.u16(o.id); w.u16(o.flags); w.u16(o.qd); w.u16(o.an||0); w.u16(0); w.u16(0);
+  const root={ label:'Domain Name System '+(o.isResp?'(response)':'(query)'), range:[0,0], children:[
+    {label:`Transaction ID: ${hex8(o.id)}`, range:[0,2]},
+    {label:`Flags: ${hex8(o.flags)}`+(o.isResp?(o.nx?', No such name':', Standard query response'):', Standard query'), range:[2,4]},
+    {label:`Questions: ${o.qd}`, range:[4,6]},
+    {label:`Answer RRs: ${o.an||0}`, range:[6,8]} ]};
+  const qStart=12, nameB=encName(o.name);
+  w.raw(nameB); w.u16(o.qtype); w.u16(1);
+  root.children.push({ label:'Queries', range:[qStart, w.b.length], children:[
+    {label:`${o.name}: type ${dnsTypeName(o.qtype)}, class IN`, range:[qStart, w.b.length], children:[
+      {label:`Name: ${o.name}`, range:[qStart, qStart+nameB.length]},
+      {label:`Type: ${dnsTypeName(o.qtype)} (${o.qtype})`, range:[qStart+nameB.length, qStart+nameB.length+2]},
+      {label:'Class: IN (0x0001)', range:[qStart+nameB.length+2, qStart+nameB.length+4]} ]}]});
+  if(o.an){
+    const ansNode={label:'Answers', range:[w.b.length,0], children:[]};
+    for(const a of o.answers){
+      const s=w.b.length; w.u16(0xc00c); w.u16(a.type); w.u16(1); w.u32(a.ttl);
+      const kids=[
+        {label:'Name: <apontador para a pergunta>', range:[s,s+2]},
+        {label:`Type: ${dnsTypeName(a.type)} (${a.type})`, range:[s+2,s+4]},
+        {label:'Class: IN (0x0001)', range:[s+4,s+6]},
+        {label:`Time to live: ${a.ttl} seconds`, range:[s+6,s+10]} ];
+      if(a.type===1){ w.u16(4); w.raw(ipBytes(a.ip));
+        kids.push({label:'Data length: 4', range:[s+10,s+12]},
+                  {label:`Address: ${a.ip}`, range:[s+12,s+16]});
+        ansNode.children.push({label:`${o.name}: type A, class IN, addr ${a.ip}`, range:[s,s+16], children:kids});
+      } else { const cn=encName(a.cname); w.u16(cn.length); w.raw(cn);
+        kids.push({label:'Data length: '+cn.length, range:[s+10,s+12]},
+                  {label:`CNAME: ${a.cname}`, range:[s+12,s+12+cn.length]});
+        ansNode.children.push({label:`${o.name}: type CNAME, class IN, cname ${a.cname}`, range:[s,s+12+cn.length], children:kids});
+      }
+    }
+    ansNode.range[1]=w.b.length; root.children.push(ansNode);
+  }
+  root.range[1]=w.b.length;
+  return { bytes:w.bytes(), tree:root };
+}
+
+/* ---------- HTTP ---------- */
+function bHTTPReq(text){
+  const bytes=[...te.encode(text)];
+  const kids=[], lines=text.split('\r\n');
+  let off=0;
+  lines.forEach((l,i)=>{ if(l===''){return;}
+    const r=[off, off+l.length]; off+=l.length+2;
+    if(i===0){ const sp=l.indexOf(' ');
+      kids.push({label:'Request Line: '+l, range:r, children:[
+        {label:`Method: ${l.slice(0,sp)}`, range:[r[0],r[0]+sp]},
+        {label:`Request URI: ${l.slice(sp+1, l.lastIndexOf(' HTTP'))}`, range:r},
+        {label:'Request Version: HTTP/1.1', range:r}]});}
+    else kids.push({label:l, range:r});
+  });
+  return { bytes, tree:{ label:'Hypertext Transfer Protocol', range:[0,bytes.length], children:kids } };
+}
+function bHTTPResp(head, chunk, cont){
+  const hb=cont?[]:[...te.encode(head)];
+  const bytes=hb.concat(chunk);
+  const kids=[];
+  if(!cont){ let off=0; head.split('\r\n').forEach((l,i)=>{ if(l==='')return;
+      const r=[off,off+l.length]; off+=l.length+2;
+      if(i===0) kids.push({label:'Status Line: '+l, range:r});
+      else kids.push({label:l, range:r});
+    }); }
+  kids.push({label:`File Data: ${chunk.length} bytes`, range:[bytes.length-chunk.length, bytes.length]});
+  return { bytes, tree:{ label:'Hypertext Transfer Protocol', range:[0,bytes.length], children:kids } };
+}
+
+/* ---------- TLS ---------- */
+function bTLSCH(sni){
+  const rand=Array.from({length:32},()=>Math.floor(rng()*256));
+  const nb=[...te.encode(sni)];
+  const ext=[];
+  // SNI
+  { const data=[(3+nb.length)>>8,(3+nb.length)&255,0,(nb.length)>>8,nb.length&255,...nb];
+    ext.push(0,0, data.length>>8, data.length&255, ...data); }
+  // supported_versions
+  { ext.push(0,0x2b,0,5, 4, 3,4,3,3); }
+  // ALPN
+  { const h2=[2,0x68,0x32], h11=[8,...te.encode('http/1.1')];
+    const list=[...h2,...h11]; const data=[list.length>>8,list.length&255,...list];
+    ext.push(0,0x10, data.length>>8, data.length&255, ...data); }
+  const body=[3,3, ...rand, 0, 0,4, 0x13,1, 0x13,2, 1,0, (ext.length>>8)&255, ext.length&255, ...ext];
+  const hs=[1, (body.length>>16)&255,(body.length>>8)&255, body.length&255, ...body];
+  const rec=[0x16,3,1, (hs.length>>8)&255, hs.length&255, ...hs];
+  return { bytes:rec, tree:{ label:'TLSv1.2 Record Layer: Handshake Protocol: Client Hello', range:[0,rec.length], children:[
+    {label:'Content Type: Handshake (22)', range:[0,1]},
+    {label:'Version: TLS 1.0 (0x0301)', range:[1,3]},
+    {label:`Length: ${hs.length}`, range:[3,5]},
+    {label:'Handshake Protocol: Client Hello', range:[5,rec.length], children:[
+      {label:'Handshake Type: Client Hello (1)', range:[5,6]},
+      {label:`Length: ${body.length}`, range:[6,9]},
+      {label:'Version: TLS 1.2 (0x0303)', range:[9,11]},
+      {label:'Random: '+rand.slice(0,8).map(x=>x.toString(16).padStart(2,'0')).join('')+'…', range:[11,43]},
+      {label:'Session ID Length: 0', range:[43,44]},
+      {label:'Cipher Suites (2 suites)', range:[44,50]},
+      {label:'Compression Methods (1 method)', range:[50,52]},
+      {label:`Extensions (${ext.length} bytes)`, range:[52,rec.length], children:[
+        {label:`Extension: Server Name (len ${5+nb.length})`, range:[52,52+7+nb.length], children:[
+          {label:'Server Name Indication extension', range:[52,52+7+nb.length]},
+          {label:`Server Name: ${sni}`, range:[57,57+nb.length]} ]},
+        {label:'Extension: supported_versions (TLS 1.3, TLS 1.2)', range:[52+7+nb.length, 52+7+nb.length+9]},
+        {label:'Extension: application_layer_protocol_negotiation (h2, http/1.1)', range:[52+16+nb.length, rec.length]} ]} ]}}};
+}
+function bTLSSH(){
+  const rand=Array.from({length:32},()=>Math.floor(rng()*256));
+  const body=[3,3,...rand,0, 0x13,1, 0, 0,7, 0,0x2b,0,3,2,3,4];
+  const hs=[2,(body.length>>16)&255,(body.length>>8)&255,body.length&255,...body];
+  const rec=[0x16,3,3,(hs.length>>8)&255,hs.length&255,...hs];
+  return { bytes:rec, tree:{ label:'TLSv1.3 Record Layer: Handshake Protocol: Server Hello', range:[0,rec.length], children:[
+    {label:'Content Type: Handshake (22)', range:[0,1]},
+    {label:'Version: TLS 1.2 (0x0303)', range:[1,3]},
+    {label:`Length: ${hs.length}`, range:[3,5]},
+    {label:'Handshake Protocol: Server Hello', range:[5,rec.length], children:[
+      {label:'Handshake Type: Server Hello (2)', range:[5,6]},
+      {label:'Version: TLS 1.2 (0x0303)', range:[9,11]},
+      {label:'Random: '+rand.slice(0,8).map(x=>x.toString(16).padStart(2,'0')).join('')+'…', range:[11,43]},
+      {label:'Cipher Suite: TLS_AES_128_GCM_SHA256 (0x1301)', range:[44,46]},
+      {label:'Extension: supported_versions (TLS 1.3)', range:[rec.length-7,rec.length]} ]}}}};
+}
+function bTLSApp(n){
+  const p=Array.from({length:n},()=>Math.floor(rng()*256));
+  const rec=[0x17,3,3,(n>>8)&255,n&255,...p];
+  return { bytes:rec, tree:{ label:'TLSv1.3 Record Layer: Application Data', range:[0,rec.length], children:[
+    {label:'Content Type: Application Data (23)', range:[0,1]},
+    {label:'Version: TLS 1.2 (0x0303)', range:[1,3]},
+    {label:`Length: ${n}`, range:[3,5]},
+    {label:`Encrypted Application Data: ${n} bytes`, range:[5,rec.length]} ]}}};
+}
+
+/* ---------- wrappers de pacote ---------- */
+function wrap(sm,dm,sip,dip,proto,inner,opt){ return bEth(dm,sm,0x0800,bIP(sip,dip,proto,inner,opt)); }
+const udpPkt=(sm,dm,sip,dip,sp,dp,inner)=>wrap(sm,dm,sip,dip,17,bUDP(sip,dip,sp,dp,inner));
+function tcpPkt(sm,dm,sip,dip,sp,dp,seq,ack,flags,win,payload,opts,ttl){
+  return wrap(sm,dm,sip,dip,6,bTCP({sip,dip,sport:sp,dport:dp,seq,ack,flags,win,payload,opts}),{ttl});
+}
+
+/* =====================================================================
+   Captura de referência — cenário completo de uma sessão real
+   ===================================================================== */
+const C='192.168.0.42', CM='a4:5e:60:c3:88:12', GW='192.168.0.1', GM='9c:3a:af:11:02:7d',
+      DNSS='8.8.8.8', WEB='93.184.216.34', API='104.18.32.7';
+const MC_MC='01:00:5e:00:00:fb', MC_SSDP='01:00:5e:7f:ff:fa';
+const SYN=0x02, SA=0x12, ACK=0x10, PA=0x18, FA=0x11;
+const SYN_OPTS=[2,4,5,0xb4, 4,2, 8,10, 0x1a,0x2b,0x3c,0x4d, 0,0,0,0, 1, 3,3,7];
+
+function mTCP(sip,dip,sp,dp,flags,stream,len,extra){
+  return Object.assign({protos:['eth','ip','tcp'], ipSrc:sip, ipDst:dip, smac:CM, dmac:GM,
+    sport:sp, dport:dp, flags, stream, len}, extra||{});
+}
+function mUDP(sip,dip,sp,dp,protos,extra){
+  return Object.assign({protos:['eth','ip','udp'].concat(protos||[]), ipSrc:sip, ipDst:dip,
+    smac:CM, dmac:GM, sport:sp, dport:dp}, extra||{});
+}
+
+function buildRef(){
+  const out=[]; let t=0, no=0;
+  function step(dt, built, info, m, ck, extra){
+    t+=dt; no++;
+    const len=built.bytes.length;
+    m=Object.assign({},m,{len});
+    const tree={ label:`Quadro ${no}: ${len} bytes capturados (${len*8} bits) na interface Wi-Fi (simulada)`,
+      range:[0,len], children:[
+      {label:`Número do quadro: ${no}`},
+      {label:`Tempo desde a referência: ${t.toFixed(6)} segundos`},
+      {label:`Comprimento do quadro: ${len} bytes (${len*8} bits)`},
+      {label:'Protocolos no quadro: '+m.protos.join(':')},
+      built.tree ]};
+    out.push(Object.assign({no, t, bytes:built.bytes, tree, info, m, colorKey:ck}, extra||{}));
+  }
+
+  /* ruído de fundo da rede local */
+  const ssdp='M-SEARCH * HTTP/1.1\r\nHOST: 239.255.255.250:1900\r\nMAN: "ssdp:discover"\r\nMX: 2\r\nST: ssdp:all\r\n\r\n';
+  step(0, udpPkt(CM,MC_SSDP,C,'239.255.255.250',49152,1900,{bytes:[...te.encode(ssdp)],tree:null}),
+    'M-SEARCH * HTTP/1.1', mUDP(C,'239.255.255.250',49152,1900,['ssdp']), 'ssdp');
+  const mdnsQ=bDNS({id:0x1a14,flags:0x0100,qd:1,an:0,name:'_airplay._tcp.local',qtype:12,isResp:false});
+  step(0.028413, udpPkt(CM,MC_MC,C,'224.0.0.251',5353,5353,mdnsQ),
+    'Standard query 0x1a14 PTR _airplay._tcp.local', mUDP(C,'224.0.0.251',5353,5353,['mdns','dns']), 'mdns');
+
+  /* ARP */
+  step(0.383794, bEth(GM,CM,0x0806,bARP(1,CM,C,'00:00:00:00:00:00',GW)),
+    'Who has 192.168.0.1? Tell 192.168.0.42', {protos:['eth','arp'],ipSrc:C,ipDst:GW,smac:CM,dmac:GM}, 'arp');
+  step(0.006345, bEth(CM,GM,0x0806,bARP(2,GM,GW,CM,C)),
+    '192.168.0.1 is at 9c:3a:af:11:02:7d', {protos:['eth','arp'],ipSrc:GW,ipDst:C,smac:GM,dmac:CM}, 'arp');
+
+  /* DNS da loja */
+  step(0.685766, udpPkt(CM,GM,C,DNSS,51781,53,
+      bDNS({id:0x8f3a,flags:0x0100,qd:1,an:0,name:'www.exemplo-loja.com.br',qtype:1,isResp:false})),
+    'Standard query 0x8f3a A www.exemplo-loja.com.br', mUDP(C,DNSS,51781,53,['dns'],{dnsName:'www.exemplo-loja.com.br'}), 'dns');
+  step(0.072522, udpPkt(GM,CM,DNSS,C,53,51781,
+      bDNS({id:0x8f3a,flags:0x8180,qd:1,an:2,name:'www.exemplo-loja.com.br',qtype:1,isResp:true,
+        answers:[{type:5,ttl:212,cname:'cdn.exemplo-loja.com.br'},{type:1,ttl:212,ip:WEB}]})),
+    'Standard query response 0x8f3a A www.exemplo-loja.com.br CNAME cdn.exemplo-loja.com.br A '+WEB,
+    mUDP(DNSS,C,53,51781,['dns'],{dnsName:'www.exemplo-loja.com.br'}), 'dns');
+
+  /* conexão HTTP — stream 0 */
+  const GET1='GET /produtos/135 HTTP/1.1\r\nHost: www.exemplo-loja.com.br\r\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36\r\nAccept: text/html,application/xhtml+xml\r\nAccept-Language: pt-BR,pt;q=0.9\r\nConnection: keep-alive\r\n\r\n';
+  const body1=[...te.encode('<!DOCTYPE html>\n<html lang="pt-BR"><head><meta charset="utf-8"><title>Loja Exemplo — Produto 135</title></head>\n<body><h1>Fone de ouvido Aurora X2</h1><p>Em estoque: 12 unidades. R$ 349,90 no PIX.</p>\n<ul><li>Cancelamento de ruído ativo</li><li>Bluetooth 5.3</li><li>Bateria de 40 h</li></ul>\n<footer>Loja Exemplo — servidor web-03</footer></body></html>')];
+  const H1LEN=body1.length;
+  const head1='HTTP/1.1 200 OK\r\nServer: nginx/1.24.0\r\nContent-Type: text/html; charset=UTF-8\r\nContent-Length: '+H1LEN+'\r\nX-Cache: MISS\r\n\r\n';
+  const half=Math.floor(H1LEN/2);
+  let cs=3721185541, ss=2113996802, S0=0;
+  step(0.015225, tcpPkt(CM,GM,C,WEB,51782,80,cs,0,SYN,64240,null,SYN_OPTS),
+    '51782 → 80 [SYN] Seq=0 Win=64240 Len=0 MSS=1460 SACK_PERM WS=256', mTCP(C,WEB,51782,80,SYN,S0), 'tcp');
+  cs++;
+  step(0.041336, tcpPkt(GM,CM,WEB,C,80,51782,ss,cs,SA,65535,null,SYN_OPTS),
+    '80 → 51782 [SYN, ACK] Seq=0 Ack=1 Win=65535 Len=0 MSS=1460 SACK_PERM WS=256', mTCP(WEB,C,80,51782,SA,S0), 'tcp');
+  ss++;
+  step(0.000711, tcpPkt(CM,GM,C,WEB,51782,80,cs,ss,ACK,64240,null),
+    '51782 → 80 [ACK] Seq=1 Ack=1 Win=64240 Len=0', mTCP(C,WEB,51782,80,ACK,S0), 'tcp');
+  const rq1=bHTTPReq(GET1); const rq1len=rq1.bytes.length;
+  step(0.012326, tcpPkt(CM,GM,C,WEB,51782,80,cs,ss,PA,64240,rq1),
+    'GET /produtos/135 HTTP/1.1', mTCP(C,WEB,51782,80,PA,S0,rq1len,{httpMethod:'GET',httpUri:'/produtos/135',httpText:GET1,httpReq:true}), 'http');
+  cs+=rq1len;
+  step(0.006336, tcpPkt(GM,CM,WEB,C,80,51782,ss,cs,ACK,65535,null),
+    '80 → 51782 [ACK] Seq=1 Ack='+(1+rq1len)+' Win=65471 Len=0', mTCP(WEB,C,80,51782,ACK,S0), 'tcp');
+  const rp1=bHTTPResp(head1, body1.slice(0,half)); const l1=rp1.bytes.length;
+  step(0.159128, tcpPkt(GM,CM,WEB,C,80,51782,ss,cs,PA,65535,rp1),
+    'HTTP/1.1 200 OK  (text/html)', mTCP(WEB,C,80,51782,PA,S0,l1,{httpText:head1,httpResp:true}), 'http');
+  ss+=l1;
+  step(0.001586, tcpPkt(CM,GM,C,WEB,51782,80,cs,ss,ACK,64240,null),
+    '51782 → 80 [ACK] Seq='+(1+rq1len)+' Ack='+(1+l1)+' Win=63744 Len=0', mTCP(C,WEB,51782,80,ACK,S0), 'tcp');
+  const rp2=bHTTPResp('', body1.slice(half), true); const l2=rp2.bytes.length;
+  step(0.064722, tcpPkt(GM,CM,WEB,C,80,51782,ss,cs,PA,65535,rp2),
+    'HTTP/1.1 200 OK  (text/html) · segmento 2 de 2', mTCP(WEB,C,80,51782,PA,S0,l2,{httpText:'…continuação do corpo da resposta',httpResp:true}), 'http');
+  ss+=l2;
+  step(0.007154, tcpPkt(CM,GM,C,WEB,51782,80,cs,ss,ACK,64240,null),
+    '51782 → 80 [ACK] Seq='+(1+rq1len)+' Ack='+(1+l1+l2)+' Win=64240 Len=0', mTCP(C,WEB,51782,80,ACK,S0), 'tcp');
+  step(0.524077, tcpPkt(CM,GM,C,WEB,51782,80,cs,ss,FA,64240,null),
+    '51782 → 80 [FIN, ACK] Seq='+(1+rq1len)+' Ack='+(1+l1+l2)+' Len=0', mTCP(C,WEB,51782,80,FA,S0), 'tcp');
+  cs++;
+  step(0.001785, tcpPkt(GM,CM,WEB,C,80,51782,ss,cs,FA,65535,null),
+    '80 → 51782 [FIN, ACK] Seq='+(1+l1+l2)+' Ack='+(2+rq1len)+' Len=0', mTCP(WEB,C,80,51782,FA,S0), 'tcp');
+  ss++;
+  step(0.001577, tcpPkt(CM,GM,C,WEB,51782,80,cs,ss,ACK,64240,null),
+    '51782 → 80 [ACK] Seq='+(2+rq1len)+' Ack='+(2+l1+l2)+' Win=64240 Len=0', mTCP(C,WEB,51782,80,ACK,S0), 'tcp');
+
+  /* DNS da API + TLS — stream 1 */
+  step(0.191, udpPkt(CM,GM,C,DNSS,51790,53,
+      bDNS({id:0x6b02,flags:0x0100,qd:1,an:0,name:'api.banco-seguro.net',qtype:1,isResp:false})),
+    'Standard query 0x6b02 A api.banco-seguro.net', mUDP(C,DNSS,51790,53,['dns'],{dnsName:'api.banco-seguro.net'}), 'dns');
+  step(0.065464, udpPkt(GM,CM,DNSS,C,53,51790,
+      bDNS({id:0x6b02,flags:0x8180,qd:1,an:1,name:'api.banco-seguro.net',qtype:1,isResp:true,
+        answers:[{type:1,ttl:47,ip:API}]})),
+    'Standard query response 0x6b02 A api.banco-seguro.net A '+API, mUDP(DNSS,C,53,51790,['dns'],{dnsName:'api.banco-seguro.net'}), 'dns');
+  let cs2=1188442137, ss2=902117774, S1=1;
+  step(0.032183, tcpPkt(CM,GM,C,API,51790,443,cs2,0,SYN,64240,null,SYN_OPTS),
+    '51790 → 443 [SYN] Seq=0 Win=64240 Len=0 MSS=1460 SACK_PERM WS=256', mTCP(C,API,51790,443,SYN,S1), 'tcp');
+  cs2++;
+  step(0.041859, tcpPkt(GM,CM,API,C,443,51790,ss2,cs2,SA,65535,null,SYN_OPTS),
+    '443 → 51790 [SYN, ACK] Seq=0 Ack=1 Win=65535 Len=0', mTCP(API,C,443,51790,SA,S1), 'tcp');
+  ss2++;
+  step(0.000824, tcpPkt(CM,GM,C,API,51790,443,cs2,ss2,ACK,64240,null),
+    '51790 → 443 [ACK] Seq=1 Ack=1 Win=64240 Len=0', mTCP(C,API,51790,443,ACK,S1), 'tcp');
+  const ch=bTLSCH('api.banco-seguro.net'); const chl=ch.bytes.length;
+  step(0.007863, tcpPkt(CM,GM,C,API,51790,443,cs2,ss2,PA,64240,ch),
+    'Client Hello (SNI: api.banco-seguro.net)', mTCP(C,API,51790,443,PA,S1,chl,{sni:'api.banco-seguro.net'}), 'tls');
+  cs2+=chl;
+  const sh=bTLSSH(); const shl=sh.bytes.length;
+  step(0.078069, tcpPkt(GM,CM,API,C,443,51790,ss2,cs2,PA,65535,sh),
+    'Server Hello', mTCP(API,C,443,51790,PA,S1,shl), 'tls');
+  ss2+=shl;
+  const ad1=bTLSApp(517); 
+  step(0.003787, tcpPkt(CM,GM,C,API,51790,443,cs2,ss2,PA,64240,ad1),
+    'Application Data', mTCP(C,API,51790,443,PA,S1,517), 'tls');
+  cs2+=517;
+  const ad2=bTLSApp(1102);
+  step(0.003499, tcpPkt(GM,CM,API,C,443,51790,ss2,cs2,PA,65535,ad2),
+    'Application Data', mTCP(API,C,443,51790,PA,S1,1102), 'tls');
+  ss2+=1102;
+  const ad3=bTLSApp(96);
+  step(0.004346, tcpPkt(CM,GM,C,API,51790,443,cs2,ss2,PA,64240,ad3),
+    'Application Data', mTCP(C,API,51790,443,PA,S1,96), 'tls');
+  cs2+=96;
+
+  /* ping */
+  const data=[...te.encode('abcdefghijklmnopqrstuvwabcdefghi')];
+  for(let i=1;i<=4;i++){
+    step(i===1?0.463747:0.999, wrap(CM,GM,C,DNSS,1,bICMP(8,0,1,i,data),{ttl:128}),
+      `Echo (ping) request  id=0x0001, seq=${i}/${i+256}, ttl=128`, 
+      {protos:['eth','ip','icmp'],ipSrc:C,ipDst:DNSS,smac:CM,dmac:GM,icmpType:8,ttl:128}, 'icmp');
+    step(0.076, wrap(GM,CM,DNSS,C,1,bICMP(0,0,1,i,data),{ttl:57}),
+      `Echo (ping) reply    id=0x0001, seq=${i}/${i+256}, ttl=57`,
+      {protos:['eth','ip','icmp'],ipSrc:DNSS,ipDst:C,smac:GM,dmac:CM,icmpType:0,ttl:57}, 'icmp');
+  }
+
+  /* fechamento do fluxo TLS */
+  step(2.013496, tcpPkt(CM,GM,C,API,51790,443,cs2,ss2,FA,64240,null),
+    '51790 → 443 [FIN, ACK] Seq=1732 Ack=1208 Len=0', mTCP(C,API,51790,443,FA,S1), 'tcp');
+  cs2++;
+  step(0.001804, tcpPkt(GM,CM,API,C,443,51790,ss2,cs2,FA,65535,null),
+    '443 → 51790 [FIN, ACK] Seq=1208 Ack=1733 Len=0', mTCP(API,C,443,51790,FA,S1), 'tcp');
+  ss2++;
+  step(0.001468, tcpPkt(CM,GM,C,API,51790,443,cs2,ss2,ACK,64240,null),
+    '51790 → 443 [ACK] Seq=1733 Ack=1209 Win=64240 Len=0', mTCP(C,API,51790,443,ACK,S1), 'tcp');
+
+  /* conexão 2 — folha de estilo, com retransmissão */
+  const GET2='GET /static/app.css HTTP/1.1\r\nHost: www.exemplo-loja.com.br\r\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/126.0.0.0\r\nAccept: text/css,*/*;q=0.1\r\nConnection: keep-alive\r\n\r\n';
+  const cssBody=[...te.encode('body{font-family:sans-serif;margin:0}header{background:#123}a{color:#c60}\n.produto img{max-width:100%}.preco{font-weight:700;color:#070}\nfooter{border-top:1px solid #ddd;padding:12px;font-size:12px}\n')];
+  const head2='HTTP/1.1 200 OK\r\nServer: nginx/1.24.0\r\nContent-Type: text/css\r\nContent-Length: '+cssBody.length+'\r\nCache-Control: max-age=86400\r\n\r\n';
+  let cs3=880230141, ss3=1143009962, S2=2;
+  step(0.322635, tcpPkt(CM,GM,C,WEB,51794,80,cs3,0,SYN,64240,null,SYN_OPTS),
+    '51794 → 80 [SYN] Seq=0 Win=64240 Len=0 MSS=1460 SACK_PERM WS=256', mTCP(C,WEB,51794,80,SYN,S2), 'tcp');
+  cs3++;
+  step(0.041377, tcpPkt(GM,CM,WEB,C,80,51794,ss3,cs3,SA,65535,null,SYN_OPTS),
+    '80 → 51794 [SYN, ACK] Seq=0 Ack=1 Win=65535 Len=0', mTCP(WEB,C,80,51794,SA,S2), 'tcp');
+  ss3++;
+  step(0.000731, tcpPkt(CM,GM,C,WEB,51794,80,cs3,ss3,ACK,64240,null),
+    '51794 → 80 [ACK] Seq=1 Ack=1 Win=64240 Len=0', mTCP(C,WEB,51794,80,ACK,S2), 'tcp');
+  const rq2=bHTTPReq(GET2); const rq2len=rq2.bytes.length;
+  step(0.008335, tcpPkt(CM,GM,C,WEB,51794,80,cs3,ss3,PA,64240,rq2),
+    'GET /static/app.css HTTP/1.1', mTCP(C,WEB,51794,80,PA,S2,rq2len,{httpMethod:'GET',httpUri:'/static/app.css',httpText:GET2,httpReq:true}), 'http');
+  const cs3a=cs3; cs3+=rq2len;
+  step(0.001582, tcpPkt(GM,CM,WEB,C,80,51794,ss3,cs3,ACK,65535,null),
+    '80 → 51794 [ACK] Seq=1 Ack='+(1+rq2len)+' Win=65471 Len=0', mTCP(WEB,C,80,51794,ACK,S2), 'tcp');
+  step(0.300791, tcpPkt(CM,GM,C,WEB,51794,80,cs3a,ss3,PA,64240,bHTTPReq(GET2)),
+    'TCP Retransmission  51794 → 80 [ACK] Seq=1 Ack=1 Len='+rq2len, mTCP(C,WEB,51794,80,PA,S2,rq2len,{retrans:true,httpText:GET2}), 'tcp');
+  step(0.005371, tcpPkt(GM,CM,WEB,C,80,51794,ss3,cs3,ACK,65535,null),
+    '80 → 51794 [ACK] Seq=1 Ack='+(1+rq2len)+' Win=65471 Len=0', mTCP(WEB,C,80,51794,ACK,S2), 'tcp');
+  const rp3=bHTTPResp(head2, cssBody); const l3=rp3.bytes.length;
+  step(0.211814, tcpPkt(GM,CM,WEB,C,80,51794,ss3,cs3,PA,65535,rp3),
+    'HTTP/1.1 200 OK  (text/css)', mTCP(WEB,C,80,51794,PA,S2,l3,{httpText:head2,httpResp:true}), 'http');
+  ss3+=l3;
+  step(0.006285, tcpPkt(CM,GM,C,WEB,51794,80,cs3,ss3,ACK,64240,null),
+    '51794 → 80 [ACK] Seq='+(1+rq2len)+' Ack='+(1+l3)+' Win=64240 Len=0', mTCP(C,WEB,51794,80,ACK,S2), 'tcp');
+  step(0.205933, tcpPkt(CM,GM,C,WEB,51794,80,cs3,ss3,FA,64240,null),
+    '51794 → 80 [FIN, ACK] Seq='+(1+rq2len)+' Ack='+(1+l3)+' Len=0', mTCP(C,WEB,51794,80,FA,S2), 'tcp');
+  cs3++;
+  step(0.001685, tcpPkt(GM,CM,WEB,C,80,51794,ss3,cs3,FA,65535,null),
+    '80 → 51794 [FIN, ACK] Seq='+(1+l3)+' Ack='+(2+rq2len)+' Len=0', mTCP(WEB,C,80,51794,FA,S2), 'tcp');
+  ss3++;
+  step(0.001503, tcpPkt(CM,GM,C,WEB,51794,80,cs3,ss3,ACK,64240,null),
+    '51794 → 80 [ACK] Seq='+(2+rq2len)+' Ack='+(2+l3)+' Win=64240 Len=0', mTCP(C,WEB,51794,80,ACK,S2), 'tcp');
+
+  /* um DNS que falha — NXDOMAIN, ótimo para diagnóstico */
+  step(0.313368, udpPkt(CM,GM,C,DNSS,51802,53,
+      bDNS({id:0x1b22,flags:0x0100,qd:1,an:0,name:'otel.medidor-metricas.net',qtype:1,isResp:false})),
+    'Standard query 0x1b22 A otel.medidor-metricas.net', mUDP(C,DNSS,51802,53,['dns'],{dnsName:'otel.medidor-metricas.net'}), 'dns');
+  step(0.072372, udpPkt(GM,CM,DNSS,C,53,51802,
+      bDNS({id:0x1b22,flags:0x8183,qd:1,an:0,name:'otel.medidor-metricas.net',qtype:1,isResp:true,nx:true})),
+    'Standard query response 0x1b22 NXDomain A otel.medidor-metricas.net', mUDP(DNSS,C,53,51802,['dns'],{dnsName:'otel.medidor-metricas.net'}), 'dns');
+
+  /* vizinho na rede */
+  step(0.127628, bEth('ff:ff:ff:ff:ff:ff','d0:39:72:5c:19:84',0x0806,bARP(1,'d0:39:72:5c:19:84','192.168.0.77','00:00:00:00:00:00',C)),
+    'Who has 192.168.0.42? Tell 192.168.0.77',
+    {protos:['eth','arp'],ipSrc:'192.168.0.77',ipDst:C,smac:'d0:39:72:5c:19:84',dmac:'ff:ff:ff:ff:ff:ff'}, 'arp');
+
+  return out;
+}
+
+/* =====================================================================
+   Filtro de display — parser e avaliação
+   ===================================================================== */
+const PROTOS=['tcp','udp','icmp','dns','http','tls','arp','mdns','ssdp','ip','eth'];
+const FIELDS={
+  'frame.number':p=>[p.no], 'frame.len':p=>[p.m.len],
+  'ip.src':p=>p.m.ipSrc?[p.m.ipSrc]:[], 'ip.dst':p=>p.m.ipDst?[p.m.ipDst]:[],
+  'ip.addr':p=>p.m.ipSrc?[p.m.ipSrc,p.m.ipDst]:[],
+  'ip.ttl':p=>p.m.ttl!=null?[p.m.ttl]:[],
+  'eth.src':p=>[p.m.smac], 'eth.dst':p=>[p.m.dmac],
+  'tcp.srcport':p=>p.m.sport!=null&&p.m.protos.includes('tcp')?[p.m.sport]:[],
+  'tcp.dstport':p=>p.m.dport!=null&&p.m.protos.includes('tcp')?[p.m.dport]:[],
+  'tcp.port':p=>p.m.sport!=null&&p.m.protos.includes('tcp')?[p.m.sport,p.m.dport]:[],
+  'tcp.stream':p=>p.m.stream!=null&&p.m.protos.includes('tcp')?[p.m.stream]:[],
+  'tcp.flags.syn':p=>p.m.protos.includes('tcp')?[(p.m.flags&2)?1:0]:[],
+  'tcp.flags.ack':p=>p.m.protos.includes('tcp')?[(p.m.flags&16)?1:0]:[],
+  'tcp.flags.fin':p=>p.m.protos.includes('tcp')?[(p.m.flags&1)?1:0]:[],
+  'tcp.flags.reset':p=>p.m.protos.includes('tcp')?[(p.m.flags&4)?1:0]:[],
+  'tcp.analysis.retransmission':p=>p.m.retrans?[1]:[0],
+  'udp.srcport':p=>p.m.sport!=null&&p.m.protos.includes('udp')?[p.m.sport]:[],
+  'udp.dstport':p=>p.m.dport!=null&&p.m.protos.includes('udp')?[p.m.dport]:[],
+  'udp.port':p=>p.m.sport!=null&&p.m.protos.includes('udp')?[p.m.sport,p.m.dport]:[],
+  'dns.qry.name':p=>p.m.dnsName?[p.m.dnsName]:[],
+  'http.request.method':p=>p.m.httpMethod?[p.m.httpMethod]:[],
+  'http.request.uri':p=>p.m.httpUri?[p.m.httpUri]:[],
+  'icmp.type':p=>p.m.icmpType!=null?[p.m.icmpType]:[],
+};
+const BOOL_FIELDS=['tcp.analysis.retransmission'];
+const SUGG=[
+  ['dns','consultas e respostas DNS'],['http','tráfego HTTP em texto claro'],['tls','handshakes e dados TLS'],
+  ['icmp','ping e mensagens de erro'],['arp','resolução de endereços na LAN'],['tcp','todos os segmentos TCP'],
+  ['udp','todos os datagramas UDP'],['tcp.flags.syn == 1','início de conexões'],['tcp.flags.syn == 1 && tcp.flags.ack == 0','apenas SYN puros'],
+  ['ip.addr == 192.168.0.42','tráfego de um host'],['ip.src == 192.168.0.42','enviado pelo host'],
+  ['tcp.port == 80','portas de origem/destino 80'],['udp.port == 53','tráfego na porta DNS'],['tcp.stream == 0','um fluxo TCP inteiro'],
+  ['dns.qry.name contains "loja"','nomes que contêm texto'],['tcp.analysis.retransmission','segmentos retransmitidos'],
+  ['icmp.type == 0','respostas Echo (ping)'],['http.request.method == GET','requisições GET'],
+];
+function tokenize(s){
+  const T=[]; let i=0;
+  while(i<s.length){
+    const ch=s[i];
+    if(/\s/.test(ch)){i++;continue;}
+    if(ch==='('||ch===')'){T.push({t:'p',v:ch});i++;continue;}
+    if(ch==='"'){ let j=i+1,v=''; while(j<s.length&&s[j]!=='"')v+=s[j++]; if(j>=s.length)throw new Error('Aspas sem fechamento'); T.push({t:'str',v}); i=j+1; continue; }
+    const two=s.substr(i,2);
+    if(['==','!=','>=','<='].includes(two)){T.push({t:'op',v:two});i+=2;continue;}
+    if(ch==='<'||ch==='>'){T.push({t:'op',v:ch});i++;continue;}
+    if(ch==='='||ch==='!') throw new Error('Operador inválido — use ==, !=, >, <, >=, <= ou contains');
+    let j=i,v='';
+    while(j<s.length&&/[A-Za-z0-9._\-]/.test(s[j]))v+=s[j++];
+    if(j===i){
+      if(s.substr(i,2)==='&&'){T.push({t:'lo',v:'and'});i+=2;continue;}
+      if(s.substr(i,2)==='||'){T.push({t:'lo',v:'or'});i+=2;continue;}
+      if(ch==='!'){T.push({t:'un',v:'not'});i++;continue;}
+      throw new Error('Caractere inesperado: "'+ch+'"');
+    }
+    const lv=v.toLowerCase();
+    if(lv==='and'||lv==='or')T.push({t:'lo',v:lv});
+    else if(lv==='not')T.push({t:'un',v:'not'});
+    else if(lv==='contains')T.push({t:'op',v:'contains'});
+    else T.push(/^\d+$/.test(v)?{t:'num',v:v}:{t:'id',v});
+    i=j;
+  }
+  return T;
+}
+function parseFilter(s){
+  const T=tokenize(s); let p=0;
+  const peek=()=>T[p], eat=()=>T[p++];
+  function expr(){ let n=term(); while(peek()&&peek().t==='lo'&&peek().v==='or'){eat();n={t:'or',a:n,b:term()};} return n; }
+  function term(){ let n=unary(); while(peek()&&peek().t==='lo'&&peek().v==='and'){eat();n={t:'and',a:n,b:unary()};} return n; }
+  function unary(){ if(peek()&&peek().t==='un'){eat();return {t:'not',a:unary()};} return prim(); }
+  function prim(){
+    const tk=eat(); if(!tk) throw new Error('Expressão incompleta');
+    if(tk.t==='p'&&tk.v==='('){ const e=expr(); const c=eat();
+      if(!c||c.t!=='p'||c.v!==')') throw new Error('Falta fechar o parêntese'); return e; }
+    if(tk.t!=='id') throw new Error('Esperava um campo ou protocolo, encontrei "'+tk.v+'"');
+    const name=tk.v.toLowerCase();
+    if(!FIELDS[name]&&!PROTOS.includes(name)&&!BOOL_FIELDS.includes(name))
+      throw new Error('"'+tk.v+'" não é um campo conhecido neste simulador');
+    if(peek()&&peek().t==='op'&&peek().v==='contains'){
+      eat(); const v=eat();
+      if(!v||(v.t!=='str'&&v.t!=='num'&&v.t!=='id')) throw new Error('contains exige um valor entre aspas');
+      return {t:'contains', f:name, v:String(v.v)};
+    }
+    if(peek()&&peek().t==='op'){
+      const op=eat().v; const v=eat();
+      if(!v||(v.t!=='num'&&v.t!=='str'&&v.t!=='id')) throw new Error('Falta o valor depois de "'+op+'"');
+      const val = v.t==='num'? +v.v : v.v;
+      if(!FIELDS[name]) throw new Error('"'+name+'" é um protocolo — use-o sem operador (ex.: '+name+')');
+      return {t:'cmp', f:name, op, v:val};
+    }
+    if(PROTOS.includes(name)) return {t:'proto', v:name};
+    if(BOOL_FIELDS.includes(name)) return {t:'cmp', f:name, op:'!=', v:0};
+    throw new Error('Campo "'+name+'" exige uma comparação — ex.: '+name+' == 1');
+  }
+  const ast=expr();
+  if(p<T.length) throw new Error('Sintaxe inesperada em "'+T[p].v+'"');
+  return ast;
+}
+function cmpOne(v,op,x){
+  const vn=typeof v==='number'?v:parseFloat(v);
+  const xn=typeof x==='number'?x:(/^-?\d+(\.\d+)?$/.test(String(x))?parseFloat(x):NaN);
+  if(!isNaN(vn)&&!isNaN(xn)){
+    switch(op){case '==':return vn===xn;case '!=':return vn!==xn;case '>':return vn>xn;
+      case '<':return vn<xn;case '>=':return vn>=xn;case '<=':return vn<=xn;}
+  }
+  const sv=String(v).toLowerCase(), sx=String(x).toLowerCase();
+  switch(op){case '==':return sv===sx;case '!=':return sv!==sx;case '>':return sv>sx;
+    case '<':return sv<sx;case '>=':return sv>=sx;case '<=':return sv<=sx;}
+  return false;
+}
+function ev(n,p){
+  switch(n.t){
+    case 'or':return ev(n.a,p)||ev(n.b,p);
+    case 'and':return ev(n.a,p)&&ev(n.b,p);
+    case 'not':return !ev(n.a,p);
+    case 'proto':return p.m.protos.includes(n.v);
+    case 'cmp':{const vals=FIELDS[n.f](p); return vals.some(v=>cmpOne(v,n.op,n.v));}
+    case 'contains':{const vals=FIELDS[n.f](p); return vals.some(v=>String(v).toLowerCase().includes(String(n.v).toLowerCase()));}
+  }
+  return false;
+}
+
+/* =====================================================================
+   Estado da aplicação
+   ===================================================================== */
+const state={
+  packets:[], filter:null, filterRaw:'', selected:-1,
+  running:false, simT:0, scenes:[], livePort:52100, liveStream:100,
+  progress:{done:{},sim:{},draft:{}},
+  openMission:null,
+  hexSpans:null,
+};
+function saveProgress(){ try{localStorage.setItem('packetlab-progress',JSON.stringify(state.progress));}catch(e){} }
+function loadProgress(){ try{const r=localStorage.getItem('packetlab-progress'); if(r)state.progress=Object.assign(state.progress,JSON.parse(r));}catch(e){} }
+
+/* =====================================================================
+   Renderização — lista, árvore, hexdump
+   ===================================================================== */
+function shown(){ return state.filter ? state.packets.filter(p=>ev(state.filter,p)) : state.packets; }
+let prevMaxNo=0;
+
+function renderList(){
+  const rows=shown();
+  const tb=$('#pktBody');
+  const frag=document.createDocumentFragment();
+  for(const p of rows){
+    const tr=document.createElement('tr');
+    tr.className='pkt '+p.colorKey+(p.m.retrans?' err':'')+(p.no===state.selected?' sel':'')
+      +(p.no>prevMaxNo?' new':'');
+    tr.dataset.no=p.no;
+    const td=(cls,txt)=>{const d=document.createElement('td');d.className=cls;d.textContent=txt;return d;};
+    tr.appendChild(td('c-no',p.no));
+    tr.appendChild(td('c-t',p.t.toFixed(6)));
+    tr.appendChild(td('',p.m.ipSrc||p.m.smac));
+    tr.appendChild(td('',p.m.ipDst||p.m.dmac));
+    const tp=document.createElement('td'); tp.className='c-proto';
+    const tag=document.createElement('span'); tag.className='proto';
+    tag.textContent=p.m.protos.filter(x=>x!=='eth'&&x!=='ip').join(',').toUpperCase()||'ETH';
+    tp.appendChild(tag); tr.appendChild(tp);
+    tr.appendChild(td('c-len',p.m.len));
+    tr.appendChild(td('info',p.info));
+    frag.appendChild(tr);
+  }
+  tb.innerHTML=''; tb.appendChild(frag);
+  prevMaxNo=Math.max(prevMaxNo, rows.length?rows[rows.length-1].no:0);
+  $('#emptyList').classList.toggle('hidden', rows.length>0 || state.packets.length>0);
+  $('#listMeta').textContent = state.packets.length
+    ? (rows.length===state.packets.length ? state.packets.length+' pacotes'
+       : rows.length+' de '+state.packets.length+' (filtrado)')
+    : '';
+  updateStatus();
+}
+function updateStatus(){
+  const rows=shown();
+  $('#stCounts').textContent='Pacotes: '+state.packets.length;
+  $('#stShown').textContent='Exibidos: '+rows.length;
+  const tot=state.packets.reduce((a,p)=>a+p.m.len,0);
+  $('#stBytes').textContent=(tot/1024).toFixed(1)+' kB capturados';
+  const s=Math.floor(state.simT);
+  const hh=String(Math.floor(s/3600)).padStart(2,'0'),
+        mm=String(Math.floor(s%3600/60)).padStart(2,'0'),
+        ss=String(s%60).padStart(2,'0');
+  $('#capClock').textContent=hh+':'+mm+':'+ss;
+}
+
+/* árvore */
+function buildTreeNode(n, depth){
+  const el=document.createElement('div'); el.className='tn';
+  const row=document.createElement('div'); row.className='tr'; row.style.setProperty('--d',depth);
+  const chev=document.createElement('span');
+  const has=!!(n.children&&n.children.length);
+  chev.className='chev'+(has?'':' no-kids'); chev.innerHTML=CHEV;
+  const lbl=document.createElement('span'); lbl.className='lbl'+(n.range?' rng':''); lbl.textContent=n.label;
+  if(n.range){ lbl.dataset.a=n.range[0]; lbl.dataset.b=n.range[1]; }
+  row.appendChild(chev); row.appendChild(lbl);
+  el.appendChild(row);
+  let kidsEl=null;
+  if(has){
+    kidsEl=document.createElement('div'); kidsEl.className='kids'+(depth===0?' open':'');
+    for(const c of n.children) kidsEl.appendChild(buildTreeNode(c,depth+1));
+    el.appendChild(kidsEl);
+    chev.addEventListener('click',e=>{e.stopPropagation();chev.classList.toggle('open');kidsEl.classList.toggle('open');});
+  }
+  row.addEventListener('click',()=>{
+    document.querySelectorAll('#tree .tr.sel').forEach(x=>x.classList.remove('sel'));
+    row.classList.add('sel');
+    if(n.range) highlightBytes(n.range[0],n.range[1]);
+  });
+  return el;
+}
+function renderDetail(){
+  const p=state.packets.find(x=>x.no===state.selected);
+  const tree=$('#tree'), empty=$('#emptyDetail');
+  if(!p){ tree.innerHTML=''; empty.classList.remove('hidden'); $('#detMeta').textContent='';
+    $('#hexdump').innerHTML=''; $('#emptyBytes').classList.remove('hidden');
+    $('#bytesMeta').textContent=''; state.hexSpans=null; return; }
+  empty.classList.add('hidden');
+  tree.innerHTML=''; tree.appendChild(buildTreeNode(p.tree,0));
+  $('#detMeta').textContent='Quadro '+p.no+' · '+p.m.len+' bytes';
+  renderHex(p);
+}
+function renderHex(p){
+  const b=p.bytes, hd=$('#hexdump');
+  $('#emptyBytes').classList.add('hidden');
+  $('#bytesMeta').textContent=b.length+' bytes';
+  let html='';
+  const spans=[];
+  for(let r=0;r<b.length;r+=16){
+    let hx='', asc='';
+    for(let i=0;i<16;i++){
+      const o=r+i;
+      if(o>=b.length){ hx+='   '; asc+=' '; spans.push(null); continue; }
+      const h=b[o].toString(16).padStart(2,'0');
+      hx+='<span class="hb" data-o="'+o+'">'+h+'</span>'+' ';
+      const c=b[o]>=32&&b[o]<127?esc(String.fromCharCode(b[o])):'·';
+      asc+='<span class="hb" data-o="'+o+'">'+c+'</span>';
+      spans.push(o);
+    }
+    hx+='  ';
+    html+='<div class="hl"><span class="off">'+r.toString(16).padStart(4,'0')+'</span><span>'+hx+'</span><span>'+asc+'</span></div>';
+  }
+  hd.innerHTML=html;
+  state.hexSpans=spans;
+  highlightBytes(-1,-1);
+}
+function highlightBytes(a,b){
+  const hd=$('#hexdump');
+  hd.querySelectorAll('.hb.sel').forEach(x=>x.classList.remove('sel'));
+  if(a<0) return;
+  hd.querySelectorAll('.hb').forEach(x=>{ const o=+x.dataset.o; if(o>=a&&o<b)x.classList.add('sel'); });
+}
+
+/* seleção */
+function selectPacket(no){
+  state.selected=no;
+  renderList(); renderDetail();
+  const p=state.packets.find(x=>x.no===no);
+  $('#btnFollow').disabled=!(p&&p.m.stream!=null&&p.m.protos.includes('tcp'));
+  if(p){
+    const tr=$('#pktBody tr[data-no="'+no+'"]');
+    if(tr) tr.scrollIntoView({block:'nearest'});
+  }
+  checkMissionSim('select-syn', p&&p.m.protos.includes('tcp')&&(p.m.flags&2)&&p.m.dport===80);
+}
+
+/* =====================================================================
+   Seguir fluxo TCP
+   ===================================================================== */
+function openStream(){
+  const sel=state.packets.find(x=>x.no===state.selected);
+  if(!sel||sel.m.stream==null) return;
+  const sid=sel.m.stream;
+  const grp=state.packets.filter(p=>p.m.stream===sid&&p.m.protos.includes('tcp'));
+  const a=grp[0].m;
+  $('#stTitle').innerHTML='Fluxo TCP '+sid+'<small id="stSub"></small>';
+  $('#stSub').textContent=a.ipSrc+':'+a.sport+'  ↔  '+a.ipDst+':'+a.dport;
+  const body=$('#stBody'); body.innerHTML='';
+  for(const p of grp){
+    const m=p.m;
+    const c2s = m.ipSrc===a.ipSrc && m.sport===a.sport;
+    const seg=document.createElement('div');
+    const isMeta=!(m.httpText);
+    seg.className='seg '+(isMeta?'meta':(c2s?'c2s':'s2c'));
+    const dir=document.createElement('span'); dir.className='segdir';
+    dir.textContent=c2s?(a.ipSrc+' → '+a.ipDst):(a.ipDst+' → '+a.ipSrc);
+    seg.appendChild(dir);
+    const pre=document.createElement('pre');
+    pre.textContent=m.httpText ? m.httpText : '['+flagStr(m.flags)+'] Seq relativos · '+m.len+' bytes no quadro';
+    seg.appendChild(pre);
+    body.appendChild(seg);
+  }
+  $('#streamModal').classList.remove('hidden');
+}
+
+/* =====================================================================
+   Captura ao vivo — cenas geradas
+   ===================================================================== */
+const LIVE_NAMES=['cdn.exemplo-loja.com.br','img.exemplo-loja.com.br','api-telemetria.medidor.net',
+  'time.android.com','config.app-noticias.com','fonts.mirror-proxy.net','sync.agenda-cloud.org'];
+const LIVE_IPS=['151.101.64.12','142.250.79.68','200.147.118.10','17.253.144.10'];
+
+function* sceneDNS(){
+  const name=LIVE_NAMES[rint(0,LIVE_NAMES.length-1)], id=rint(0,65535);
+  const sp=++state.livePort;
+  yield {dt:0, mk:()=>mkLive(udpPkt(CM,GM,C,DNSS,sp,53,
+      bDNS({id,flags:0x0100,qd:1,an:0,name,qtype:1,isResp:false})),
+    'Standard query '+hex8(id)+' A '+name, mUDP(C,DNSS,sp,53,['dns'],{dnsName:name}), 'dns')};
+  yield {dt:0.03+rng()*0.06, mk:()=>mkLive(udpPkt(GM,CM,DNSS,C,53,sp,
+      bDNS({id,flags:0x8180,qd:1,an:1,name,qtype:1,isResp:true,answers:[{type:1,ttl:60,ip:LIVE_IPS[rint(0,LIVE_IPS.length-1)]}]})),
+    'Standard query response '+hex8(id)+' A '+name, mUDP(DNSS,C,53,sp,['dns'],{dnsName:name}), 'dns')};
+}
+function* scenePing(){
+  const seq=rint(5,200), ip=rng()<0.5?DNSS:LIVE_IPS[rint(0,LIVE_IPS.length-1)];
+  const data=[...te.encode('abcdefghijklmnopqrstuvwabcdefghi')];
+  yield {dt:0, mk:()=>mkLive(wrap(CM,GM,C,ip,1,bICMP(8,0,1,seq,data),{ttl:128}),
+    'Echo (ping) request  id=0x0001, seq='+seq, {protos:['eth','ip','icmp'],ipSrc:C,ipDst:ip,smac:CM,dmac:GM,icmpType:8,ttl:128}, 'icmp')};
+  yield {dt:0.02+rng()*0.1, mk:()=>mkLive(wrap(GM,CM,ip,C,1,bICMP(0,0,1,seq,data),{ttl:57}),
+    'Echo (ping) reply    id=0x0001, seq='+seq, {protos:['eth','ip','icmp'],ipSrc:ip,ipDst:C,smac:GM,dmac:CM,icmpType:0,ttl:57}, 'icmp')};
+}
+function* sceneHTTP(){
+  const sid=++state.liveStream, sp=++state.livePort;
+  const name=LIVE_NAMES[rint(0,2)];
+  const req='GET /static/'+['app.js','logo.svg','banner.webp'][rint(0,2)]+' HTTP/1.1\r\nHost: '+name+'\r\nUser-Agent: Mozilla/5.0\r\nConnection: keep-alive\r\n\r\n';
+  const rq=bHTTPReq(req), rql=rq.bytes.length;
+  const bd=Array.from({length:rint(120,400)},()=>rint(32,126));
+  const rsp=bHTTPResp('HTTP/1.1 200 OK\r\nServer: nginx\r\nContent-Type: application/octet-stream\r\nContent-Length: '+bd.length+'\r\n\r\n', bd);
+  const rsl=rsp.bytes.length;
+  let cs=rint(1e9,2e9), ss=rint(1e9,2e9);
+  yield{dt:0,mk:()=>mkLive(tcpPkt(CM,GM,C,LIVE_IPS[rint(0,LIVE_IPS.length-1)],sp,443,cs,0,SYN,64240,null,SYN_OPTS),
+    sp+' → 443 [SYN] Seq=0 Win=64240 Len=0', mTCP(C,'srv',sp,443,SYN,sid), 'tcp')};
+  yield{dt:0.04,mk:()=>mkLive(tcpPkt(GM,CM,'srv',C,443,sp,ss,cs+1,SA,65535,null,SYN_OPTS),
+    '443 → '+sp+' [SYN, ACK] Seq=0 Ack=1 Len=0', mTCP('srv',C,443,sp,SA,sid), 'tcp')};
+  yield{dt:0.001,mk:()=>mkLive(tcpPkt(CM,GM,C,'srv',sp,443,cs+1,ss+1,ACK,64240,null),
+    sp+' → 443 [ACK] Seq=1 Ack=1 Len=0', mTCP(C,'srv',sp,443,ACK,sid), 'tcp')};
+  yield{dt:0.008,mk:()=>mkLive(tcpPkt(CM,GM,C,'srv',sp,443,cs+1,ss+1,PA,64240,rq),
+    'GET /static/… HTTP/1.1', mTCP(C,'srv',sp,443,PA,sid,rql), 'http')};
+  yield{dt:0.05,mk:()=>mkLive(tcpPkt(GM,CM,'srv',C,443,sp,ss+1,cs+1+rql,PA,65535,rsp),
+    'HTTP/1.1 200 OK', mTCP('srv',C,443,sp,PA,sid,rsl), 'http')};
+  yield{dt:0.4,mk:()=>mkLive(tcpPkt(CM,GM,C,'srv',sp,443,cs+1+rql,ss+1+rsl,FA,64240,null),
+    sp+' → 443 [FIN, ACK] Seq='+(1+rql)+' Ack='+(1+rsl)+' Len=0', mTCP(C,'srv',sp,443,FA,sid), 'tcp')};
+}
+function* sceneARP(){
+  const who=rint(60,240);
+  yield{dt:0,mk:()=>mkLive(bEth('ff:ff:ff:ff:ff:ff','d0:39:72:5c:19:84',0x0806,
+      bARP(1,'d0:39:72:5c:19:84','192.168.0.'+who,'00:00:00:00:00:00',C)),
+    'Who has 192.168.0.42? Tell 192.168.0.'+who,
+    {protos:['eth','arp'],ipSrc:'192.168.0.'+who,ipDst:C,smac:'d0:39:72:5c:19:84',dmac:'ff:ff:ff:ff:ff:ff'}, 'arp')};
+  yield{dt:0.006,mk:()=>mkLive(bEth(CM,GM,0x0806,bARP(2,GM,GW,'d0:39:72:5c:19:84','192.168.0.'+who)),
+    Gw(), {protos:['eth','arp'],ipSrc:GW,ipDst:'192.168.0.'+who,smac:GM,dmac:CM}, 'arp')};
+  function Gw(){return GW+' is at '+GM;}
+}
+function* sceneTLSPing(){
+  const sid=++state.liveStream, sp=++state.livePort;
+  let cs=rint(1e9,2e9), ss=rint(1e9,2e9), n1=rint(60,160), n2=rint(60,200);
+  yield{dt:0,mk:()=>mkLive(tcpPkt(CM,GM,C,API,sp,443,cs,0,SYN,64240,null,SYN_OPTS),
+    sp+' → 443 [SYN] Seq=0 Win=64240 Len=0', mTCP(C,API,sp,443,SYN,sid), 'tcp')};
+  yield{dt:0.04,mk:()=>mkLive(tcpPkt(GM,CM,API,C,443,sp,ss,cs+1,SA,65535,null,SYN_OPTS),
+    '443 → '+sp+' [SYN, ACK] Seq=0 Ack=1 Len=0', mTCP(API,C,443,sp,SA,sid), 'tcp')};
+  yield{dt:0.01,mk:()=>mkLive(tcpPkt(CM,GM,C,API,sp,443,cs+1,ss+1,PA,64240,bTLSApp(n1)),
+    'Application Data', mTCP(C,API,sp,443,PA,sid,n1), 'tls')};
+  yield{dt:0.05,mk:()=>mkLive(tcpPkt(GM,CM,API,C,443,sp,ss+1,cs+1+n1,PA,65535,bTLSApp(n2)),
+    'Application Data', mTCP(API,C,443,sp,PA,sid,n2), 'tls')};
+  yield{dt:0.5,mk:()=>mkLive(tcpPkt(CM,GM,C,API,sp,443,cs+1+n1,ss+1+n2,FA,64240,null),
+    sp+' → 443 [FIN, ACK] Len=0', mTCP(C,API,sp,443,FA,sid), 'tcp')};
+}
+const SCENES=[sceneDNS,sceneDNS,scenePing,sceneHTTP,sceneARP,sceneTLSPing];
+
+function mkLive(built, info, m, ck){
+  const no=state.packets.length+1, t=0, len=built.bytes.length;
+  m=Object.assign({},m,{len});
+  const tree={label:'Quadro '+no+': '+len+' bytes capturados ('+len*8+' bits) na interface Wi-Fi (simulada)',
+    range:[0,len], children:[
+    {label:'Número do quadro: '+no},
+    {label:'Protocolos no quadro: '+m.protos.join(':')}, built.tree]};
+  return {no,t:0,bytes:built.bytes,tree,info,m,colorKey:ck,_live:true};
+}
+function liveTick(){
+  if(!state.running) return;
+  if(state.packets.length>1500){ stopCapture(); toast('Limite da demonstração atingido (1500 pacotes). Captura parada.'); return; }
+  state.simT+=0.3;
+  const done=[];
+  for(const sc of state.scenes){
+    while(sc.nextAt<=state.simT){
+      const r=sc.gen.next();
+      if(r.done){ done.push(sc); break; }
+      const p=r.value.mk(); p.t=sc.nextAt;
+      state.packets.push(p);
+      if(r.value.dt!==undefined) sc.nextAt=sc.nextAt+r.value.dt;
+      if(sc.gen.next){}
+    }
+  }
+  /* avanço simples: cada cena produz um pacote por chamada */
+  // reimplementação de avanço controlado:
+  for(const sc of done) state.scenes.splice(state.scenes.indexOf(sc),1);
+  if(state.scenes.length<3 && rng()<0.4){
+    state.scenes.push({gen:SCENES[rint(0,SCENES.length-1)](), nextAt:state.simT+rng()*0.5});
+  }
+  renderList();
+}
+function startCapture(){
+  if(state.running) return;
+  state.running=true;
+  $('#btnStart').disabled=true; $('#btnStop').disabled=false;
+  $('#btnStart').classList.remove('primary'); $('#btnStop').classList.add('stop');
+  $('#stLive').classList.remove('hidden');
+  state.scenes=[{gen:SCENES[rint(0,SCENES.length-1)](), nextAt:state.simT+0.1}];
+  state._liveTimer=setInterval(liveTick,300);
+  toast('Captura ao vivo iniciada — novos pacotes estão chegando.','ok');
+  checkMissionSim('start',true);
+}
+function stopCapture(){
+  state.running=false;
+  clearInterval(state._liveTimer);
+  $('#btnStart').disabled=false; $('#btnStop').disabled=true;
+  $('#btnStart').classList.add('primary'); $('#btnStop').classList.remove('stop');
+  $('#stLive').classList.add('hidden');
+}
+
+/* =====================================================================
+   Trilha guiada
+   ===================================================================== */
+const MISSIONS=[
+ {id:'m1',num:1,title:'Primeira captura',
+  ctx:'Toda análise começa por escolher a interface correta: o Wireshark só enxerga o que atravessa a placa selecionada. Antes de filtrar qualquer coisa, é preciso saber iniciar e parar uma captura.',
+  machine:[
+    {t:'Baixe e instale o Wireshark em wireshark.org. No Linux: '},
+    {c:'sudo apt install wireshark && sudo usermod -aG wireshark $USER'},
+    {t:'Abra o Wireshark: a tela inicial lista as interfaces com um mini-gráfico de tráfego ao lado. Escolha a que tem atividade (Wi-Fi ou Ethernet) e dê duplo clique para começar a capturar.'},
+    {t:'Navegue em algum site por alguns segundos e pare a captura no botão vermelho da barra de ferramentas. Salve o arquivo como '},
+    {c:'minha-primeira.pcapng'},
+  ],
+  sim:{kind:'select-syn', text:'Nesta lista, localize o primeiro pacote [SYN] da conexão na porta 80 e clique nele para abrir os detalhes das camadas.'},
+  quiz:{q:'Quantos pacotes tem um handshake TCP de três vias?', ph:'ex.: 2', accept:v=>v==='3'||v==='tres'||v==='3 pacotes'||v==='tres pacotes',
+    hint:'SYN, depois SYN/ACK… e o cliente confirma com mais um pacote.'}},
+ {id:'m2',num:2,title:'Filtre apenas o DNS',
+  ctx:'Filtros de display deixam visível somente o que interessa. O DNS traduz nomes em endereços IP e quase sempre é o primeiro passo de qualquer conexão — é onde a análise de rede começa.',
+  machine:[
+    {t:'Com o Wireshark real capturando, abra um terminal e gere uma consulta:'},
+    {c:'nslookup www.example.com   (Windows)'},
+    {c:'dig www.example.com   (Linux/macOS)'},
+    {t:'Na barra de filtros do Wireshark, digite '},
+    {c:'dns'},
+    {t:'e pressione Enter. Observe os pares consulta/resposta na porta UDP 53 — e compare os campos Flags de cada um.'},
+  ],
+  sim:{kind:'filter', text:'Aplique aqui o filtro que exibe apenas pacotes DNS (dica: "dns" ou "udp.port == 53").',
+    accept:n=>['dns','udp.port==53','dns||udp.port==53'].includes(n)},
+  quiz:{q:'No simulador, qual nome de domínio foi consultado no primeiro pacote DNS?', ph:'ex.: www.…', 
+    accept:v=>{const s=v.replace(/\s/g,'');return s==='www.exemplo-loja.com.br'||s==='exemplo-loja.com.br';},
+    hint:'Aplique o filtro dns e leia o campo Name do primeiro pacote da lista.'}},
+ {id:'m3',num:3,title:'O handshake TCP',
+  ctx:'Antes de qualquer dado trafegar, o TCP negocia a conexão em três passos: SYN → SYN,ACK → ACK. Reconhecer esse padrão de olho é uma das habilidades mais básicas de quem analisa redes.',
+  machine:[
+    {t:'No Wireshark real, aplique o filtro que mostra apenas os inícios de conexão:'},
+    {c:'tcp.flags.syn == 1'},
+    {t:'Gere uma conexão nova a partir do terminal:'},
+    {c:'curl -s http://example.com > /dev/null'},
+    {t:'Observe a sequência: o cliente envia [SYN], o servidor responde [SYN, ACK] e o cliente fecha a negociação com [ACK] puro.'},
+  ],
+  sim:{kind:'filter', text:'Aplique o mesmo filtro no simulador e clique no primeiro pacote resultante.',
+    accept:n=>n.startsWith('tcp.flags.syn==1')},
+  quiz:{q:'Quais flags aparecem no segundo pacote do handshake?', ph:'ex.: SYN',
+    accept:v=>v.includes('syn')&&v.includes('ack'),
+    hint:'O servidor aceita a conexão e pede confirmação ao mesmo tempo.'}},
+ {id:'m4',num:4,title:'HTTP em texto claro',
+  ctx:'Sem criptografia, o HTTP expõe tudo: método, caminho, cabeçalhos e até o conteúdo. Ver isso com os próprios olhos é a melhor forma de entender por que HTTP puro caiu em desuso.',
+  machine:[
+    {t:'Gere tráfego HTTP puro (sites HTTPS não mostrarão conteúdo legível):'},
+    {c:'curl -s http://neverssl.com > /dev/null'},
+    {t:'No Wireshark, filtre '},
+    {c:'http'},
+    {t:'Clique com o botão direito no pacote GET e escolha Follow › TCP Stream para ler a conversa inteira entre cliente e servidor.'},
+  ],
+  sim:{kind:'filter', text:'Aplique o filtro http e depois use o botão "Seguir fluxo TCP" com um pacote de requisição selecionado.',
+    accept:n=>n==='http'||n.startsWith('http.request')||n==='http||tcp.port==80'},
+  quiz:{q:'Qual método e caminho foram pedidos na requisição HTTP do simulador?', ph:'ex.: GET /…',
+    accept:v=>v.includes('/produtos/135')&&v.includes('get'),
+    hint:'Aplique http e leia a Request Line — método, caminho e versão.'}},
+ {id:'m5',num:5,title:'TLS e o campo SNI',
+  ctx:'No HTTPS o conteúdo é cifrado — mas o nome do servidor ainda viaja em claro dentro do Client Hello, no campo SNI (Server Name Indication). É um dos campos mais valiosos em análise de tráfego e em firewalls.',
+  machine:[
+    {t:'No Wireshark real, filtre apenas os Client Hello:'},
+    {c:'tls.handshake.type == 1'},
+    {t:'Abra qualquer site HTTPS no navegador para gerar tráfego.'},
+    {t:'Expanda a árvore: Transport Layer Security › Handshake Protocol › Extension: Server Name — o hostname está lá, legível.'},
+  ],
+  sim:{kind:'filter', text:'Aplique um filtro TLS no simulador e localize o pacote "Client Hello (SNI: …)".',
+    accept:n=>n.startsWith('tls')||n.includes('tls.handshake')},
+  quiz:{q:'Qual hostname aparece no campo SNI do Client Hello?', ph:'ex.: api.…',
+    accept:v=>v.replace(/\s/g,'').includes('banco-seguro.net'),
+    hint:'Clique no pacote cuja coluna Info menciona "Client Hello".'}},
+ {id:'m6',num:6,title:'Diagnóstico com ICMP',
+  ctx:'O ping usa ICMP Echo Request (tipo 8) e Echo Reply (tipo 0). Latência, TTL e ausência de resposta são pistas clássicas de diagnóstico — e o Wireshark mostra cada mensagem isoladamente.',
+  machine:[
+    {t:'No Wireshark real, aplique o filtro '},
+    {c:'icmp'},
+    {t:'Em outro terminal, rode:'},
+    {c:'ping 8.8.8.8'},
+    {t:'Observe o padrão request/reply alternando, e compare o TTL dos dois lados: o reply vem com o TTL inicial do sistema remoto, por isso é diferente.'},
+  ],
+  sim:{kind:'filter', text:'Aplique o filtro icmp no simulador e veja as quatro sequências de ping da captura.',
+    accept:n=>n==='icmp'||n.startsWith('icmp.')},
+  quiz:{q:'Qual é o número do tipo ICMP da resposta (Echo Reply)?', ph:'ex.: 8',
+    accept:v=>v==='0'||v.includes('echo reply'),
+    hint:'Clique num reply e expanda o nó ICMP nos Detalhes — o Type está lá.'}},
+];
+const simLabel={ 'select-syn':'Selecionar o pacote [SYN] da porta 80', 'filter':'Aplicar o filtro correto', 'start':'Iniciar a captura' };
+
+function renderGuide(){
+  const box=$('#missionList'); box.innerHTML='';
+  let doneCount=0;
+  for(const m of MISSIONS){
+    const done=state.progress.done[m.id], sim=!!state.progress.sim[m.id];
+    if(done) doneCount++;
+    const el=document.createElement('div');
+    el.className='ms'+(done?' done':'')+(state.openMission===m.id?' openm':'');
+    el.dataset.id=m.id;
+    let head='<button class="ms-head"><span class="ms-num">'+m.num+'</span><span class="ms-tt">'+m.title+'</span>'+
+      '<span class="ms-st"><i data-lucide="'+(done?'circle-check':'circle')+'"></i></span>'+
+      '<span class="ms-chev">'+CHEV+'</span></button>';
+    let body='<div class="ms-body"><p class="ms-ctx">'+m.ctx+'</p>';
+    body+='<div class="ms-sec"><span class="ms-lab"><i data-lucide="laptop"></i>Na sua máquina</span><ol>';
+    for(const s of m.machine){
+      if(s.c) body+='<li><div class="cmd"><code>'+esc(s.c)+'</code><button data-copy="'+esc(s.c)+'" title="Copiar comando"><i data-lucide="copy"></i></button></div></li>';
+      else body+='<li><span>'+s.t+'</span></li>';
+    }
+    body+='</ol></div>';
+    body+='<div class="ms-sec sim"><span class="ms-lab"><i data-lucide="mouse-pointer-click"></i>No simulador</span>'+
+      '<p>'+m.sim.text+'</p>'+
+      '<div class="ms-chk'+(sim?' okchk':'')+'"><i data-lucide="'+(sim?'circle-check':'loader')+'"></i>'+
+      (sim?'Concluído no simulador':'Pendente: '+ (simLabel[m.sim.kind]||'tarefa'))+'</div></div>';
+    const ans=state.progress.draft[m.id]||'';
+    body+='<div class="ms-sec quiz"><span class="ms-lab"><i data-lucide="help-circle"></i>Verificação</span>'+
+      '<p>'+m.quiz.q+'</p>'+
+      '<div class="qrow"><input type="text" data-q="'+m.id+'" placeholder="'+m.quiz.ph+'" value="'+esc(ans)+'">'+
+      '<button class="btn primary" data-check="'+m.id+'">Verificar</button></div>'+
+      '<div class="qfb" id="qfb-'+m.id+'"></div></div>';
+    body+='</div>';
+    el.innerHTML=head+body;
+    box.appendChild(el);
+  }
+  $('#gfill').style.width=(doneCount/MISSIONS.length*100)+'%';
+  $('#gcount').textContent=doneCount+'/'+MISSIONS.length;
+  if(doneCount===MISSIONS.length && !$('#gdone')){
+    const d=document.createElement('div'); d.className='gdone'; d.id='gdone';
+    d.innerHTML='<i data-lucide="award"></i><b>Trilha concluída.</b> Agora é modo livre: capture tráfego ao vivo, monte seus próprios filtros, explore a hierarquia de protocolos e tente seguir fluxos TCP no Wireshark real.';
+    box.after(d); // inserir após a lista
+  } else if(doneCount<MISSIONS.length){ const g=$('#gdone'); if(g)g.remove(); }
+  lucide.createIcons();
+}
+function completeMission(id){
+  if(state.progress.done[id]) return;
+  state.progress.done[id]=true; saveProgress();
+  const m=MISSIONS.find(x=>x.id===id);
+  toast('Missão '+m.num+' concluída: '+m.title,'ok');
+  renderGuide();
+  const idx=MISSIONS.findIndex(x=>x.id===id);
+  const next=MISSIONS[idx+1];
+  if(next){ setTimeout(()=>{ state.openMission=next.id; renderGuide(); },600); }
+}
+function checkMissionSim(kind, ok){
+  if(!ok) return;
+  for(const m of MISSIONS){
+    if(m.sim.kind===kind && !state.progress.sim[m.id] && !state.progress.done[m.id]){
+      state.progress.sim[m.id]=true; saveProgress();
+      toast('Tarefa do simulador concluída: '+m.title,'ok');
+      renderGuide();
+    }
+  }
+}
+function checkMissionFilter(raw){
+  const n=raw.replace(/\s+/g,'').toLowerCase();
+  checkMissionSim('filter', MISSIONS.some(m=>m.sim.kind==='filter' && m.sim.accept(n)));
+}
+
+document.addEventListener('click',e=>{
+  const head=e.target.closest('.ms-head');
+  if(head){ const id=head.parentElement.dataset.id;
+    state.openMission = state.openMission===id?null:id; renderGuide(); return; }
+  const cp=e.target.closest('[data-copy]');
+  if(cp){ const cmd=cp.getAttribute('data-copy');
+    (navigator.clipboard?navigator.clipboard.writeText(cmd):Promise.reject())
+      .then(()=>toast('Comando copiado para a área de transferência.','ok'))
+      .catch(()=>{ const ta=document.createElement('textarea'); ta.value=cmd; document.body.appendChild(ta);
+        ta.select(); document.execCommand('copy'); ta.remove(); toast('Comando copiado.','ok'); });
+    return; }
+  const chk=e.target.closest('[data-check]');
+  if(chk){ const id=chk.getAttribute('data-check');
+    const m=MISSIONS.find(x=>x.id===id);
+    const inp=document.querySelector('[data-q="'+id+'"]');
+    const val=norm(inp.value);
+    const fb=$('#qfb-'+id);
+    if(!val){ fb.className='qfb badfb'; fb.textContent='Digite uma resposta antes de verificar.'; return; }
+    if(m.quiz.accept(val)){
+      fb.className='qfb good';
+      fb.textContent='Correto. Campo registrado — prática consolidada.';
+      state.progress.sim[id]=true;
+      completeMission(id);
+    } else {
+      fb.className='qfb badfb';
+      fb.textContent='Ainda não. Dica: '+m.quiz.hint;
+    }
+    return; }
+});
+
+/* =====================================================================
+   Barra de filtros + autocomplete
+   ===================================================================== */
+const fInput=$('#filterInput'), acBox=$('#acBox');
+let acIdx=-1, acItems=[];
+function showAC(q){
+  const partial=(fInput.value.slice(0,fInput.selectionStart).match(/[A-Za-z0-9._]+$/)||[''])[0].toLowerCase();
+  acItems = partial.length<2 ? [] : SUGG.filter(([f])=>f.toLowerCase().includes(partial)).slice(0,8);
+  if(!acItems.length){ acBox.classList.add('hidden'); acIdx=-1; return; }
+  acIdx=Math.min(acIdx<0?0:acIdx, acItems.length-1);
+  acBox.innerHTML=acItems.map(([f,d],i)=>'<div class="ac-it'+(i===acIdx?' act':'')+'" data-i="'+i+'"><code>'+esc(f)+'</code><span class="d">'+d+'</span></div>').join('');
+  acBox.classList.remove('hidden');
+}
+function applyAC(){
+  if(acIdx<0||!acItems[acIdx]) return false;
+  const f=acItems[acIdx][0];
+  const m=fInput.value.slice(0,fInput.selectionStart).match(/[A-Za-z0-9._]+$/);
+  const start=m?fInput.selectionStart-m[0].length:fInput.selectionStart;
+  fInput.value=fInput.value.slice(0,start)+f+fInput.value.slice(fInput.selectionStart);
+  const pos=start+f.length+1; fInput.setSelectionRange(pos,pos);
+  acBox.classList.add('hidden'); acIdx=-1; fInput.focus();
+  validateFilter(false);
+  return true;
+}
+function validateFilter(showErr){
+  const raw=fInput.value.trim();
+  $('#fClear').style.display=raw?'block':'none';
+  fInput.classList.remove('ok','bad');
+  $('#filterErr').classList.add('hidden');
+  if(!raw) return null;
+  try{
+    const ast=parseFilter(raw);
+    fInput.classList.add('ok');
+    return ast;
+  }catch(err){
+    fInput.classList.add('bad');
+    if(showErr!==false){ const fe=$('#filterErr'); fe.textContent=err.message; fe.classList.remove('hidden'); }
+    return null;
+  }
+}
+function applyFilterInput(){
+  const raw=fInput.value.trim();
+  const ast=validateFilter(true);
+  if(raw&&!ast){ toast('Filtro inválido — corrija a sintaxe antes de aplicar.','bad'); return; }
+  state.filter=ast; state.filterRaw=raw;
+  renderList();
+  if(raw){ checkMissionFilter(raw); toast(rowsCount()+' pacotes exibidos pelo filtro.',''); }
+  else toast('Filtro removido — exibindo todos os pacotes.','');
+  function rowsCount(){ return shown().length; }
+}
+fInput.addEventListener('input',()=>{ validateFilter(false); acIdx=-1; showAC(); });
+fInput.addEventListener('keydown',e=>{
+  if(e.key==='ArrowDown'&&acItems.length){e.preventDefault();acIdx=(acIdx+1)%acItems.length;showAC();}
+  else if(e.key==='ArrowUp'&&acItems.length){e.preventDefault();acIdx=(acIdx-1+acItems.length)%acItems.length;showAC();}
+  else if(e.key==='Tab'){ if(acItems.length){e.preventDefault();applyAC();} }
+  else if(e.key==='Enter'){ if(acItems.length&&acIdx>=0){applyAC();} else applyFilterInput(); }
+  else if(e.key==='Escape'){ acBox.classList.add('hidden'); acIdx=-1; }
+});
+fInput.addEventListener('blur',()=>setTimeout(()=>acBox.classList.add('hidden'),150));
+acBox.addEventListener('mousedown',e=>{ const it=e.target.closest('.ac-it');
+  if(it){ acIdx=+it.dataset.i; e.preventDefault(); applyAC(); } });
+ $('#fClear').addEventListener('click',()=>{ fInput.value=''; state.filter=null; validateFilter(false); renderList(); });
+document.addEventListener('keydown',e=>{
+  if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='f'){ e.preventDefault(); fInput.focus(); fInput.select(); }
+  if(e.key==='Escape'){ $('#streamModal').classList.add('hidden'); $('#hierPop').classList.add('hidden'); }
+});
+
+/* filtros úteis */
+const SUGG_MENU=[['dns','consulta e resposta DNS'],['tcp.flags.syn == 1','início de conexões'],
+  ['http','HTTP em texto claro'],['tls','handshakes e cifragem'],['icmp','ping'],
+  ['ip.addr == 192.168.0.42','tráfego do cliente'],['tcp.stream == 0','fluxo da página inicial'],
+  ['tcp.analysis.retransmission','retransmissões']];
+ $('#suggMenu').innerHTML=SUGG_MENU.map(([f,d])=>'<button class="menu-it" data-f="'+esc(f)+'"><code>'+esc(f)+'</code><small>'+d+'</small></button>').join('');
+ $('#btnSugg').addEventListener('click',e=>{ e.stopPropagation(); $('#suggMenu').classList.toggle('hidden'); });
+document.addEventListener('click',e=>{
+  if(!e.target.closest('.dropdown')) $('#suggMenu').classList.add('hidden');
+  if(!e.target.closest('#hierPop')&&!e.target.closest('#btnHier')) $('#hierPop').classList.add('hidden');
+});
+ $('#suggMenu').addEventListener('click',e=>{
+  const b=e.target.closest('[data-f]'); if(!b)return;
+  fInput.value=b.getAttribute('data-f');
+  $('#suggMenu').classList.add('hidden');
+  applyFilterInput(); fInput.focus();
+});
+
+/* =====================================================================
+   Hierarquia de protocolos
+   ===================================================================== */
+const HIER_ORDER=['http','tls','dns','icmp','arp','mdns','ssdp','tcp','udp'];
+const HIER_COLORS={http:'var(--acc)',tls:'var(--pink)',dns:'var(--green)',icmp:'var(--terra)',
+  arp:'var(--lilac)',mdns:'var(--dim)',ssdp:'var(--dim)',tcp:'var(--teal)',udp:'var(--olive)'};
+ $('#btnHier').addEventListener('click',()=>{
+  const pop=$('#hierPop');
+  if(!pop.classList.contains('hidden')){ pop.classList.add('hidden'); return; }
+  const rows=shown(), counts={};
+  for(const p of rows){
+    const top=HIER_ORDER.find(x=>p.m.protos.includes(x))||'eth';
+    counts[top]=(counts[top]||0)+1;
+  }
+  const max=rows.length||1;
+  $('#hierRows').innerHTML=HIER_ORDER.filter(k=>counts[k]).map(k=>{
+    const n=counts[k], pct=(n/max*100);
+    return '<div class="hrow"><span>'+k+'</span><span class="n">'+n+' · '+pct.toFixed(0)+'%</span>'+
+      '<span class="hbar"><div style="width:'+pct+'%;background:'+HIER_COLORS[k]+'"></div></span></div>';
+  }).join('')||'<div class="hrow"><span class="n">nenhum pacote exibido</span></div>';
+  pop.classList.remove('hidden');
+});
+
+/* =====================================================================
+   Sparkline + controles
+   ===================================================================== */
+const spark=$('#spark'), sctx=spark.getContext('2d');
+const samples=new Array(40).fill(0); let sinceLast=0;
+setInterval(()=>{
+  samples.push(sinceLast); samples.shift(); sinceLast=0;
+  const w=spark.width,h=spark.height, mx=Math.max(4,...samples);
+  sctx.clearRect(0,0,w,h);
+  sctx.strokeStyle='rgba(139,152,163,.18)'; sctx.beginPath(); sctx.moveTo(0,h-1.5); sctx.lineTo(w,h-1.5); sctx.stroke();
+  sctx.beginPath();
+  samples.forEach((v,i)=>{ const x=i/(samples.length-1)*w, y=h-2-(v/mx)*(h-6);
+    i?sctx.lineTo(x,y):sctx.moveTo(x,y); });
+  sctx.strokeStyle='#f0a83c'; sctx.lineWidth=1.5; sctx.stroke();
+  sctx.lineTo(w,h); sctx.lineTo(0,h); sctx.closePath();
+  sctx.fillStyle='rgba(240,168,60,.13)'; sctx.fill();
+},450);
+const _origRender=renderList;
+renderList=function(){ _origRender(); sinceLast=Math.min(sinceLast,99)+0; };
+// contagem para sparkline: cada pacote novo incrementa
+const _push=state.packets.push.bind(state.packets);
+state.packets.push=function(p){ sinceLast++; return _push(p); };
+
+ $('#btnStart').addEventListener('click',startCapture);
+ $('#btnStop').addEventListener('click',()=>{ stopCapture(); toast('Captura parada.'); });
+ $('#btnClear').addEventListener('click',()=>{
+  stopCapture(); state.packets.length=0; state.selected=-1; prevMaxNo=0; state.simT=0;
+  renderList(); renderDetail(); toast('Lista de pacotes limpa.');
+});
+ $('#btnLoad').addEventListener('click',()=>{
+  stopCapture(); state.packets.length=0;
+  for(const p of buildRef()) state.packets.push(p);
+  state.selected=-1; prevMaxNo=0; state.simT=state.packets[state.packets.length-1].t;
+  renderList(); renderDetail();
+  toast('Captura de referência carregada: '+state.packets.length+' pacotes.','ok');
+});
+ $('#btnFollow').addEventListener('click',openStream);
+ $('#stClose').addEventListener('click',()=>$('#streamModal').classList.add('hidden'));
+ $('#streamModal').addEventListener('click',e=>{ if(e.target.id==='streamModal')$('#streamModal').classList.add('hidden'); });
+ $('#btnGuide').addEventListener('click',()=>{
+  if(window.innerWidth<=1100){ document.body.classList.toggle('guide-on'); }
+  else document.body.classList.toggle('guide-off');
+});
+ $('#btnReset').addEventListener('click',()=>{
+  try{localStorage.removeItem('packetlab-progress');}catch(e){}
+  state.progress={done:{},sim:{},draft:{}}; state.openMission='m1';
+  renderGuide(); toast('Progresso da trilha reiniciado.');
+});
+ $('#pktBody').addEventListener('click',e=>{
+  const tr=e.target.closest('tr.pkt'); if(tr) selectPacket(+tr.dataset.no);
+});
+
+/* redimensionamento dos painéis */
+function dragify(handle, upper, lower){
+  let y0=0,h0=0,dragging=false;
+  handle.addEventListener('mousedown',e=>{
+    dragging=true; y0=e.clientY; h0=upper.getBoundingClientRect().height;
+    document.body.style.userSelect='none'; e.preventDefault();
+  });
+  document.addEventListener('mousemove',e=>{
+    if(!dragging) return;
+    const nh=Math.max(90, Math.min(h0+e.clientY-y0, window.innerHeight-260));
+    upper.style.flex='0 0 '+nh+'px'; lower.style.flex='1 1 0';
+  });
+  document.addEventListener('mouseup',()=>{ dragging=false; document.body.style.userSelect=''; });
+}
+dragify($('#dragA'),$('#pList'),$('#pDetail'));
+dragify($('#dragB'),$('#pDetail'),$('#pBytes'));
+
+/* ---------- inicialização ---------- */
+loadProgress();
+for(const p of buildRef()) state.packets.push(p);
+state.simT=state.packets[state.packets.length-1].t;
+renderList(); renderDetail();
+const firstPending=MISSIONS.find(m=>!state.progress.done[m.id]);
+state.openMission=firstPending?firstPending.id:MISSIONS[0].id;
+renderGuide();
+lucide.createIcons();
+</script>
+</body>
+</html>
